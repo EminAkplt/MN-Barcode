@@ -15,6 +15,10 @@ namespace MN_Barcode.DataAccess
         public DbSet<Product> Products { get; set; }
         public DbSet<Category> Categories { get; set; }
 
+        public DbSet<Expense> Expenses { get; set; }
+        public DbSet<Sale> Sales { get; set; }
+        public DbSet<SaleDetail> SaleDetails { get; set; }
+
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
 
