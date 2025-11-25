@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace MN_Barcode.Entities
 {
-    public class Expense : BaseEntity
+    public class Expense :SaaSEntity
     {
         [Required]
         [StringLength(100)]

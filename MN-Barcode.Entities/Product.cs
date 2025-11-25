@@ -7,34 +7,23 @@ using System.ComponentModel.DataAnnotations;
 
 namespace MN_Barcode.Entities
 {
-    public class Product : BaseEntity
+    public class Product : SaaSEntity // Şirkete aittir
     {
-        [Required]
-        [StringLength(100)]
-
+        [Required, StringLength(100)]
         public string Name { get; set; }
 
         [StringLength(50)]
-        public string Barcode { get; set; } 
+        public string Barcode { get; set; }
 
-        [StringLength(500)]
         public string Description { get; set; }
-
-       
-        public decimal? BuyingPrice { get; set; } 
-        public decimal SellingPrice { get; set; } 
-
-     
+        public decimal BuyingPrice { get; set; }
+        public decimal SellingPrice { get; set; }
         public double StockQuantity { get; set; }
-
         [StringLength(20)]
-        public string Unit { get; set; } 
+        public string Unit { get; set; }
 
-     
-
-        public int CategoryId { get; set; } // Veritabanındaki ID'si (Örn: 5)
-
-        
+        // Kategori İlişkisi
+        public int CategoryId { get; set; }
         public Category Category { get; set; }
     }
 }

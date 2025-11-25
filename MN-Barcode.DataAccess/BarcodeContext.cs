@@ -12,18 +12,30 @@ namespace MN_Barcode.DataAccess
 {
     public class BarcodeContext : DbContext
     {
+        public DbSet<Company> Companies { get; set; }
         public DbSet<Product> Products { get; set; }
         public DbSet<Category> Categories { get; set; }
-
         public DbSet<Expense> Expenses { get; set; }
         public DbSet<Sale> Sales { get; set; }
         public DbSet<SaleDetail> SaleDetails { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
-
-
             optionsBuilder.UseSqlServer("Data Source=.\\SQLEXPRESS; Initial Catalog=MNBarcodeDb; Integrated Security=True; TrustServerCertificate=True;");
+        }
+
+        // --- MÜHENDİSLİK ÇÖZÜMÜ ---
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            // Tüm "Cascade Delete" (Otomatik Silme) yollarını iptal et.
+            // Böylece Şirket silinirse, ürünler silinmeye çalışmaz, SQL hata vermez.
+            // Biz kod tarafında elle sileriz.
+            foreach (var relationship in modelBuilder.Model.GetEntityTypes().SelectMany(e => e.GetForeignKeys()))
+            {
+                relationship.DeleteBehavior = DeleteBehavior.Restrict;
+            }
+
+            base.OnModelCreating(modelBuilder);
         }
     }
 }
