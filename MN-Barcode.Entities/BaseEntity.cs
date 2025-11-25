@@ -13,7 +13,7 @@ namespace MN_Barcode.Entities
 
         public String CreatedBy { get; set; }
 
-        public DateTime? UpdDate { get; set; }
+       
 
     }
 }
