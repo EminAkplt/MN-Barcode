@@ -1,0 +1,81 @@
+﻿/* wwwroot/css/login.css */
+
+body {
+    background-color: #f4f6f9;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+}
+
+.login-container {
+    background: #ffffff;
+    width: 100%;
+    max-width: 400px;
+    padding: 40px;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+    transition: transform 0.3s ease;
+}
+
+    .login-container:hover {
+        transform: translateY(-5px);
+    }
+
+.brand-logo {
+    text-align: center;
+    margin-bottom: 30px;
+    color: #2c3e50;
+    font-weight: 700;
+    font-size: 28px;
+    letter-spacing: 1px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+    position: relative; /* Göz ikonu için lazım */
+}
+
+.form-control {
+    height: 45px;
+    border-radius: 8px;
+    border: 1px solid #dfe3e8;
+    padding-left: 15px;
+    font-size: 14px;
+}
+
+    .form-control:focus {
+        border-color: #3498db;
+        box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+    }
+
+.btn-login {
+    background-color: #3498db;
+    border: none;
+    height: 45px;
+    border-radius: 8px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    transition: background-color 0.2s;
+}
+
+    .btn-login:hover {
+        background-color: #2980b9;
+    }
+
+.toggle-password {
+    position: absolute;
+    right: 15px;
+    top: 40px; /* Label yüksekliğine göre ayarlandı */
+    cursor: pointer;
+    color: #95a5a6;
+}
+
+.footer-text {
+    text-align: center;
+    margin-top: 25px;
+    font-size: 12px;
+    color: #95a5a6;
+}
