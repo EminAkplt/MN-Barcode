@@ -1,49 +1,119 @@
 ﻿<!DOCTYPE html>
-<html lang="en">
+<html lang="tr">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - MN_Barcode.Web</title>
-    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
-    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/MN_Barcode.Web.styles.css" asp-append-version="true" />
+    <title>@ViewData["Title"] - MN Barcode</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+        <link href="~/css/layout.css" rel="stylesheet" />
+
+        @await RenderSectionAsync("Styles", required: false)
+    
 </head>
 <body>
-    <header>
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
-            <div class="container-fluid">
-                <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">MN_Barcode.Web</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
-                        aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
-                    <ul class="navbar-nav flex-grow-1">
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Index">Home</a>
+
+    <div class="d-flex">
+
+        <nav id="sidebar">
+            <div class="sidebar-header">
+                <h3><i class="fas fa-barcode"></i> MN-Pos</h3>
+            </div>
+
+            <ul class="list-unstyled components">
+
+                <li>
+                    <a href="/Home/Index"><i class="fas fa-home"></i> Özet Ekran</a>
+                </li>
+
+                <li>
+                    <a href="#satisSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle">
+                        <i class="fas fa-cash-register"></i> Satış İşlemleri
+                    </a>
+                    <ul class="collapse list-unstyled" id="satisSubmenu">
+                        <li>
+                            <a href="/Sales/Index"><i class="fas fa-play"></i> Hızlı Satış Ekranı</a>
                         </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+                        <li>
+                            <a href="/Sales/History"><i class="fas fa-history"></i> Satış Geçmişi</a>
+                        </li>
+                        <li>
+                            <a href="/Sales/Returns"><i class="fas fa-undo"></i> İade İşlemleri</a>
                         </li>
                     </ul>
-                </div>
+                </li>
+
+                <li>
+                    <a href="#urunSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle">
+                        <i class="fas fa-box-open"></i> Stok Yönetimi
+                    </a>
+                    <ul class="collapse list-unstyled" id="urunSubmenu">
+                        <li>
+                            <a href="/Product/Index"><i class="fas fa-list"></i> Ürün Listesi</a>
+                        </li>
+                        <li>
+                            <a href="/Product/Add"><i class="fas fa-plus"></i> Yeni Ürün Ekle</a>
+                        </li>
+                        <li>
+                            <a href="/Category/Index"><i class="fas fa-tags"></i> Kategoriler</a>
+                        </li>
+                    </ul>
+                </li>
+
+                <li>
+                    <a href="/Report/Index"><i class="fas fa-chart-pie"></i> Raporlar</a>
+                </li>
+
+                <li>
+                    <a href="/Expense/Index"><i class="fas fa-file-invoice-dollar"></i> Giderler</a>
+                </li>
+
+                <li>
+                    <a href="/Settings/Index"><i class="fas fa-cogs"></i> Ayarlar</a>
+                </li>
+            </ul>
+
+            <div class="text-center mt-5">
+                <a href="/Account/Logout" class="btn btn-outline-danger btn-sm w-75">
+                    <i class="fas fa-sign-out-alt"></i> Çıkış
+                </a>
             </div>
         </nav>
-    </header>
-    <div class="container">
-        <main role="main" class="pb-3">
+
+        <div id="content">
+
+            <nav class="navbar navbar-expand-lg navbar-light bg-light rounded shadow-sm mb-4">
+                <div class="container-fluid">
+
+                    <button type="button" id="sidebarCollapse" class="btn-toggle">
+                        <i class="fas fa-bars"></i>
+                    </button>
+
+                    <div class="ms-auto d-flex align-items-center">
+                        <span class="me-2 text-muted fw-bold">
+                            @User.Identity.Name
+                        </span>
+                        <i class="fas fa-user-circle fa-2x text-secondary"></i>
+                    </div>
+                </div>
+            </nav>
+
             @RenderBody()
-        </main>
+        </div>
+
     </div>
 
-    <footer class="border-top footer text-muted">
-        <div class="container">
-            &copy; 2025 - MN_Barcode.Web - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
-        </div>
-    </footer>
-    <script src="~/lib/jquery/dist/jquery.min.js"></script>
-    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="~/js/site.js" asp-append-version="true"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            document.getElementById('sidebarCollapse').addEventListener('click', function () {
+                document.getElementById('sidebar').classList.toggle('active');
+            });
+        });
+    </script>
+
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>
