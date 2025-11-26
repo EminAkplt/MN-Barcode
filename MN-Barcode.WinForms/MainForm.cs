@@ -8,63 +8,66 @@ namespace MN_Barcode.WinForms
 {
     public partial class MainForm : Form
     {
-        // --- MODERN RENK PALETİ ---
-        private readonly Color SidebarColor = Color.FromArgb(30, 41, 59);      // Koyu Gece Mavisi
-        private readonly Color SidebarHover = Color.FromArgb(51, 65, 85);      // Hover Rengi
-        private readonly Color ActiveColor = Color.FromArgb(37, 99, 235);      // Seçili Mavi
-        private readonly Color HeaderColor = Color.FromArgb(15, 23, 42);       // Üst Bar (Logonun olduğu yer - Daha koyu)
-        private readonly Color ContentBg = Color.FromArgb(241, 245, 249);      // İçerik Gri Zemin
-        private readonly Color TextColor = Color.FromArgb(226, 232, 240);      // Beyazımsı Yazı
-        private readonly Color DangerColor = Color.FromArgb(220, 38, 38);      // Kırmızı
+        // --- RENK PALETİ ---
+        private readonly Color SidebarColor = Color.FromArgb(30, 41, 59);
+        private readonly Color SidebarHover = Color.FromArgb(51, 65, 85);
+        private readonly Color ActiveColor = Color.FromArgb(37, 99, 235);
+        private readonly Color HeaderColor = Color.FromArgb(15, 23, 42);
+        private readonly Color ContentBg = Color.FromArgb(241, 245, 249);
+        private readonly Color TextColor = Color.FromArgb(226, 232, 240);
+        private readonly Color DangerColor = Color.FromArgb(220, 38, 38);
 
-        // Boyutlar
-        private const int SidebarExpandedWidth = 260;
-        private const int SidebarCollapsedWidth = 70;
-        private bool _isExpanded = true;
+        // BOYUTLAR
+        private const int SidebarMax = 260;
+        private const int SidebarMin = 70; // Kapalıyken kalacak genişlik
+        private bool _isSidebarOpen = true;
 
-        // Global Kontroller
-        private Panel _sidebar;
+        // Global Değişkenler
+        private AppUser _currentUser;
         private Panel _contentPanel;
         private FlowLayoutPanel _menuContainer;
+        private Panel _sidebar;
+        private Label _lblLogo;
+
+        // Timerlar
         private Timer _accordionTimer;
-        private Timer _sidebarToggleTimer;
+        private Timer _sidebarTimer; // Menü Aç/Kapa için
         private Panel _activeSubMenuPanel;
-        private bool _isOpening = false;
-        private bool _isSidebarOpen = true;
+        private bool _isOpeningSubMenu = false;
 
         public MainForm(AppUser user)
         {
+            _currentUser = user;
             SetupDesign();
         }
 
         private void SetupDesign()
         {
-            // 1. FORM AYARLARI
             this.Text = "MN POS Pro";
             this.Size = new Size(1366, 768);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.WindowState = FormWindowState.Maximized;
-            this.FormBorderStyle = FormBorderStyle.None; // Çerçevesiz
+            this.FormBorderStyle = FormBorderStyle.None;
 
-            // 2. ÜST BAR (HEADER - SADECE LOGO VE KAPATMA)
+            // 1. ÜST BAR (HEADER)
             Panel header = new Panel();
             header.Dock = DockStyle.Top;
             header.Height = 60;
             header.BackColor = HeaderColor;
             this.Controls.Add(header);
 
-            // Logo (Ortada veya Solda durabilir, sola yasladık)
-            Label lblLogo = new Label();
-            lblLogo.Text = "📦  MN-POS"; // Marka
-            lblLogo.ForeColor = Color.White;
-            lblLogo.Font = new Font("Segoe UI", 18, FontStyle.Bold);
-            lblLogo.Dock = DockStyle.Left;
-            lblLogo.TextAlign = ContentAlignment.MiddleLeft;
-            lblLogo.Padding = new Padding(20, 0, 0, 0);
-            lblLogo.AutoSize = true;
-            header.Controls.Add(lblLogo);
+            // Logo (Header'da Sol Tarafta)
+            _lblLogo = new Label();
+            _lblLogo.Text = "📦  MN-POS";
+            _lblLogo.ForeColor = Color.White;
+            _lblLogo.Font = new Font("Segoe UI", 18, FontStyle.Bold);
+            _lblLogo.Dock = DockStyle.Left;
+            _lblLogo.TextAlign = ContentAlignment.MiddleLeft;
+            _lblLogo.Padding = new Padding(10, 0, 0, 0);
+            _lblLogo.AutoSize = true;
+            header.Controls.Add(_lblLogo);
 
-            // X (Kapatma) Butonu - "Emin misin?" sorulu
+            // X (Kapatma) Butonu
             Button btnClose = new Button();
             btnClose.Text = "✕";
             btnClose.Dock = DockStyle.Right;
@@ -76,25 +79,25 @@ namespace MN_Barcode.WinForms
             btnClose.Cursor = Cursors.Hand;
             btnClose.MouseEnter += (s, e) => { btnClose.BackColor = DangerColor; btnClose.ForeColor = Color.White; };
             btnClose.MouseLeave += (s, e) => { btnClose.BackColor = HeaderColor; btnClose.ForeColor = Color.Gray; };
-            btnClose.Click += (s, e) => ConfirmExit(); // Çıkış Fonksiyonu
+            btnClose.Click += (s, e) => ConfirmExit();
             header.Controls.Add(btnClose);
 
-            // 3. SIDEBAR (SOL MENÜ)
+            // 2. SIDEBAR (SOL MENÜ)
             _sidebar = new Panel();
             _sidebar.Dock = DockStyle.Left;
-            _sidebar.Width = SidebarExpandedWidth;
+            _sidebar.Width = SidebarMax;
             _sidebar.BackColor = SidebarColor;
             this.Controls.Add(_sidebar);
 
-            // HAMBURGER BUTONU (Sidebar'ın en tepesinde)
+            // --- HAMBURGER BUTONU ALANI ---
             Panel togglePanel = new Panel();
             togglePanel.Dock = DockStyle.Top;
             togglePanel.Height = 60;
-            togglePanel.BackColor = Color.FromArgb(20, 30, 45); // Sidebar'dan azıcık koyu, ayrışsın
+            togglePanel.BackColor = Color.FromArgb(20, 30, 45); // Sidebar'dan koyu
             _sidebar.Controls.Add(togglePanel);
 
             Button btnMenu = new Button();
-            btnMenu.Text = "☰   MENÜ"; // Yanına yazı da ekledik
+            btnMenu.Text = "☰   MENÜ"; // İkon + Yazı
             btnMenu.Font = new Font("Segoe UI", 12, FontStyle.Bold);
             btnMenu.ForeColor = Color.LightGray;
             btnMenu.FlatStyle = FlatStyle.Flat;
@@ -103,21 +106,22 @@ namespace MN_Barcode.WinForms
             btnMenu.Cursor = Cursors.Hand;
             btnMenu.TextAlign = ContentAlignment.MiddleLeft;
             btnMenu.Padding = new Padding(15, 0, 0, 0);
-            btnMenu.Click += (s, e) => ToggleSidebarAnimation();
+            // TIKLAYINCA MENÜYÜ AÇ/KAPA
+            btnMenu.Click += (s, e) => _sidebarTimer.Start();
             togglePanel.Controls.Add(btnMenu);
 
             // Menü Konteyneri
             _menuContainer = new FlowLayoutPanel();
             _menuContainer.Dock = DockStyle.Fill;
             _menuContainer.FlowDirection = FlowDirection.TopDown;
-            _menuContainer.WrapContents = false;
-            _menuContainer.AutoScroll = true;
+            _menuContainer.WrapContents = false; // Yan yana dizmesin
+            _menuContainer.AutoScroll = true; // Sığmazsa kaydır
             _menuContainer.BackColor = SidebarColor;
-            _menuContainer.Padding = new Padding(0, 10, 0, 0); // Üstten biraz boşluk
+            _menuContainer.Padding = new Padding(0, 10, 0, 0);
             _sidebar.Controls.Add(_menuContainer);
-            _menuContainer.BringToFront(); // Toggle panelinin altına gelmesi için
+            _menuContainer.BringToFront();
 
-            // 4. İÇERİK ALANI
+            // 3. İÇERİK ALANI
             _contentPanel = new Panel();
             _contentPanel.Dock = DockStyle.Fill;
             _contentPanel.BackColor = ContentBg;
@@ -129,195 +133,124 @@ namespace MN_Barcode.WinForms
             _accordionTimer = new Timer { Interval = 15 };
             _accordionTimer.Tick += AccordionTimer_Tick;
 
-            _sidebarToggleTimer = new Timer { Interval = 10 };
-            _sidebarToggleTimer.Tick += SidebarToggleTimer_Tick;
+            _sidebarTimer = new Timer { Interval = 10 };
+            _sidebarTimer.Tick += SidebarTimer_Tick;
 
-            // --- MENÜ YAPISINI KURUYORUZ ---
+            // Menüyü Kur
             BuildMenuStructure();
 
-            // Açılış Sayfası
-            ShowContent("Dashboard / Özet");
+            ShowContent("Ana Sayfa");
         }
 
-        private void ConfirmExit()
+        // --- MENÜYÜ AÇIP KAPATAN MOTOR ---
+        private void SidebarTimer_Tick(object sender, EventArgs e)
         {
-            DialogResult result = MessageBox.Show(
-                "Programı kapatmak istediğinize emin misiniz?",
-                "Çıkış Onayı",
-                MessageBoxButtons.YesNo,
-                MessageBoxIcon.Question);
-
-            if (result == DialogResult.Yes)
-            {
-                Application.Exit();
-            }
-        }
-
-        // --- MENÜ MİMARİSİ (Senin İstediğin Sıra) ---
-        private void BuildMenuStructure()
-        {
-            // 4.0 - ANA SAYFA (Grafikler vs.)
-            _menuContainer.Controls.Add(CreateSingleMenuButton("📊  ANA SAYFA", (s, e) => ShowContent("Günlük Özet & Grafikler")));
-
-            // 4.1 - HIZLI SATIŞ (Tek Buton)
-            _menuContainer.Controls.Add(CreateSingleMenuButton("⚡  HIZLI SATIŞ", (s, e) => ShowContent("Satış Ekranı")));
-
-            // 4.2 - SATIŞ YÖNETİMİ (Açılır Menü)
-            var satisYonetimi = CreateAccordionGroup("💰  SATIŞ YÖNETİMİ",
-                new string[] { "Satış Geçmişi", "İade İşlemleri" });
-            _menuContainer.Controls.Add(satisYonetimi);
-
-            // 4.3 - STOK YÖNETİMİ (Açılır Menü)
-            var stokYonetimi = CreateAccordionGroup("📦  STOK YÖNETİMİ",
-                new string[] { "Ürün Listesi", "Ürün Yönetimi (Ekle/Sil)" });
-            _menuContainer.Controls.Add(stokYonetimi);
-
-            // 4.4 - RAPORLAR (Açılır veya Tek, Tek istedin sanırım ama açılır yaptım şık dursun)
-            var raporlar = CreateAccordionGroup("📈  RAPORLAR",
-                new string[] { "Gün Sonu (Z Raporu)", "Ciro Analizi" });
-            _menuContainer.Controls.Add(raporlar);
-
-            // 4.5 - AYARLAR
-            _menuContainer.Controls.Add(CreateSingleMenuButton("⚙️  SİSTEM AYARLARI", (s, e) => ShowContent("Ayarlar")));
-        }
-
-        // --- YARDIMCI METOTLAR (UI Motoru) ---
-
-        private void ToggleSidebarAnimation()
-        {
-            _sidebarToggleTimer.Start();
-        }
-
-        private void SidebarToggleTimer_Tick(object sender, EventArgs e)
-        {
-            int step = 30;
             if (_isSidebarOpen)
             {
-                _sidebar.Width -= step;
-                if (_sidebar.Width <= SidebarCollapsedWidth)
+                // Kapatıyoruz...
+                _sidebar.Width -= 30;
+                if (_sidebar.Width <= SidebarMin)
                 {
-                    _sidebar.Width = SidebarCollapsedWidth;
+                    _sidebar.Width = SidebarMin;
                     _isSidebarOpen = false;
-                    _sidebarToggleTimer.Stop();
+                    _sidebarTimer.Stop();
+                    _lblLogo.Text = "MN"; // Logo küçülsün
 
-                    // Kapanınca yazıları gizle (Sadece ikon kalsın efekti)
-                    // Basitlik adına metni kısaltıyoruz
-                    foreach (Control c in _menuContainer.Controls)
-                    {
-                        if (c is Button b) b.Text = b.Text.Substring(0, 2); // Sadece ikon
-                        if (c is Panel p && p.Controls.Count > 0) p.Controls[p.Controls.Count - 1].Text = p.Controls[p.Controls.Count - 1].Text.Substring(0, 2);
-                    }
+                    // Yazıları Gizle (Sadece İkon Kalsın)
+                    // FlowLayout içindeki butonları döngüye sokup textlerini kırpabiliriz
+                    // Ama basitlik adına şimdilik böyle kalsın, sadece daralıyor.
                 }
             }
             else
             {
-                _sidebar.Width += step;
-                if (_sidebar.Width >= SidebarExpandedWidth)
+                // Açıyoruz...
+                _sidebar.Width += 30;
+                if (_sidebar.Width >= SidebarMax)
                 {
-                    _sidebar.Width = SidebarExpandedWidth;
+                    _sidebar.Width = SidebarMax;
                     _isSidebarOpen = true;
-                    _sidebarToggleTimer.Stop();
-
-                    // Açılınca yazıları geri getir (Yeniden yükle)
-                    _menuContainer.Controls.Clear();
-                    BuildMenuStructure(); // En temizi yeniden oluşturmak
+                    _sidebarTimer.Stop();
+                    _lblLogo.Text = "📦  MN-POS"; // Logo büyüsün
                 }
             }
         }
 
+        // --- MENÜ YAPISI ---
+        private void BuildMenuStructure()
+        {
+            _menuContainer.Controls.Add(CreateSingleMenuButton("📊  Ana Sayfa", (s, e) => ShowContent("Günlük Özet")));
+            _menuContainer.Controls.Add(CreateSingleMenuButton("⚡  Hızlı Satış", (s, e) => ShowForm(new SalesForm())));
+
+            _menuContainer.Controls.Add(CreateAccordionGroup("💰  Satış Yönetimi", new string[] { "Satış Geçmişi", "İade İşlemleri" }));
+            _menuContainer.Controls.Add(CreateAccordionGroup("📦  Stok Yönetimi", new string[] { "Ürün Listesi", "Ürün Ekle/Düzenle" }));
+
+            _menuContainer.Controls.Add(CreateSingleMenuButton("📈  Raporlar", (s, e) => ShowContent("Raporlar")));
+            _menuContainer.Controls.Add(CreateSingleMenuButton("⚙️  Ayarlar", (s, e) => ShowContent("Ayarlar")));
+        }
+
+        // --- YARDIMCI METOTLAR ---
         private Button CreateSingleMenuButton(string text, EventHandler onClick)
         {
             Button btn = new Button();
             btn.Text = "  " + text;
             btn.Height = 50;
-            btn.Width = 260;
+            btn.Width = 260; // Genişlik sabit kalsın, panel daralınca otomatik kesilir
             btn.FlatStyle = FlatStyle.Flat;
             btn.FlatAppearance.BorderSize = 0;
             btn.BackColor = SidebarColor;
             btn.ForeColor = TextColor;
-            btn.Font = new Font("Segoe UI", 10, FontStyle.Bold); // Biraz daha okunaklı
+            btn.Font = new Font("Segoe UI", 10, FontStyle.Bold);
             btn.TextAlign = ContentAlignment.MiddleLeft;
             btn.Padding = new Padding(15, 0, 0, 0);
             btn.Cursor = Cursors.Hand;
-            btn.Margin = new Padding(0, 0, 0, 2); // Altına ince boşluk
+            btn.Margin = new Padding(0, 0, 0, 2);
 
             btn.MouseEnter += (s, e) => btn.BackColor = SidebarHover;
             btn.MouseLeave += (s, e) => btn.BackColor = SidebarColor;
-            btn.Click += (s, e) => {
-                ResetButtonColors();
-                btn.BackColor = ActiveColor;
-                onClick?.Invoke(s, e);
-            };
-
+            btn.Click += (s, e) => { ResetButtonColors(); btn.BackColor = ActiveColor; onClick?.Invoke(s, e); };
             return btn;
         }
 
         private Panel CreateAccordionGroup(string title, string[] subItems)
         {
-            Panel groupPanel = new Panel();
-            groupPanel.Width = 260;
-            groupPanel.Height = 50;
-            groupPanel.BackColor = SidebarColor;
-            groupPanel.Margin = new Padding(0, 0, 0, 2);
+            Panel group = new Panel { Width = 260, Height = 50, BackColor = SidebarColor, Margin = new Padding(0, 0, 0, 2) };
 
-            Button parentBtn = CreateSingleMenuButton(title, null);
-            parentBtn.Dock = DockStyle.Top;
-            // Ok işareti
-            Label arrow = new Label();
-            arrow.Text = "▼";
-            arrow.ForeColor = Color.Gray;
-            arrow.Font = new Font("Arial", 8);
-            arrow.AutoSize = true;
-            arrow.Location = new Point(230, 20);
-            arrow.BackColor = Color.Transparent;
-            parentBtn.Controls.Add(arrow);
+            Button headerBtn = CreateSingleMenuButton(title, null);
+            headerBtn.Dock = DockStyle.Top;
+            Label arrow = new Label { Text = "▼", ForeColor = Color.Gray, AutoSize = true, Location = new Point(230, 20), BackColor = Color.Transparent };
+            headerBtn.Controls.Add(arrow);
 
             int totalHeight = 50;
-            foreach (string subItem in subItems)
+            foreach (var item in subItems)
             {
                 Button subBtn = new Button();
-                subBtn.Text = "      • " + subItem;
+                subBtn.Text = "      • " + item;
                 subBtn.Dock = DockStyle.Top;
                 subBtn.Height = 40;
                 subBtn.FlatStyle = FlatStyle.Flat;
                 subBtn.FlatAppearance.BorderSize = 0;
-                subBtn.BackColor = Color.FromArgb(20, 30, 45); // Alt menü daha koyu
+                subBtn.BackColor = Color.FromArgb(20, 30, 45);
                 subBtn.ForeColor = Color.Silver;
-                subBtn.Font = new Font("Segoe UI", 9);
                 subBtn.TextAlign = ContentAlignment.MiddleLeft;
-                subBtn.Padding = new Padding(15, 0, 0, 0);
                 subBtn.Cursor = Cursors.Hand;
-
+                subBtn.Click += (s, e) => ShowContent(item);
                 subBtn.MouseEnter += (s, e) => subBtn.ForeColor = Color.White;
                 subBtn.MouseLeave += (s, e) => subBtn.ForeColor = Color.Silver;
-                subBtn.Click += (s, e) => ShowContent(subItem);
-
-                groupPanel.Controls.Add(subBtn);
+                group.Controls.Add(subBtn);
                 totalHeight += 40;
             }
 
-            parentBtn.BringToFront();
-            groupPanel.Controls.Add(parentBtn);
-            groupPanel.Tag = totalHeight;
+            headerBtn.BringToFront();
+            group.Controls.Add(headerBtn);
+            group.Tag = totalHeight;
 
-            parentBtn.Click += (s, e) => {
-                // Diğerlerini kapat
-                foreach (Control c in _menuContainer.Controls)
-                    if (c is Panel p && p != groupPanel && p.Height > 50) p.Height = 50;
-
-                _activeSubMenuPanel = groupPanel;
-                if (groupPanel.Height == 50) { _isOpening = true; arrow.Text = "▲"; }
-                else { _isOpening = false; arrow.Text = "▼"; }
+            headerBtn.Click += (s, e) => {
+                foreach (Control c in _menuContainer.Controls) if (c is Panel p && p != group && p.Height > 50) p.Height = 50;
+                _activeSubMenuPanel = group;
+                if (group.Height == 50) { _isOpeningSubMenu = true; arrow.Text = "▲"; } else { _isOpeningSubMenu = false; arrow.Text = "▼"; }
                 _accordionTimer.Start();
             };
-
-            return groupPanel;
-        }
-
-        private void ResetButtonColors()
-        {
-            // Basitçe tüm butonların rengini sıfırla
-            // (Derinlemesine arama yapmak lazım ama şimdilik basit tutuyoruz)
+            return group;
         }
 
         private void AccordionTimer_Tick(object sender, EventArgs e)
@@ -325,8 +258,7 @@ namespace MN_Barcode.WinForms
             if (_activeSubMenuPanel == null) return;
             int target = (int)_activeSubMenuPanel.Tag;
             int speed = 25;
-
-            if (_isOpening)
+            if (_isOpeningSubMenu)
             {
                 _activeSubMenuPanel.Height += speed;
                 if (_activeSubMenuPanel.Height >= target) { _activeSubMenuPanel.Height = target; _accordionTimer.Stop(); }
@@ -338,16 +270,28 @@ namespace MN_Barcode.WinForms
             }
         }
 
+        private void ShowForm(Form form)
+        {
+            _contentPanel.Controls.Clear();
+            form.TopLevel = false;
+            form.FormBorderStyle = FormBorderStyle.None;
+            form.Dock = DockStyle.Fill;
+            _contentPanel.Controls.Add(form);
+            form.Show();
+        }
+
         private void ShowContent(string title)
         {
             _contentPanel.Controls.Clear();
-            Label lbl = new Label();
-            lbl.Text = title;
-            lbl.Font = new Font("Segoe UI", 28, FontStyle.Bold);
-            lbl.ForeColor = Color.LightGray;
-            lbl.AutoSize = true;
-            lbl.Location = new Point(50, 50);
+            Label lbl = new Label { Text = title, Font = new Font("Segoe UI", 28, FontStyle.Bold), ForeColor = Color.LightGray, AutoSize = true, Location = new Point(50, 50) };
             _contentPanel.Controls.Add(lbl);
+        }
+
+        private void ResetButtonColors() { }
+
+        private void ConfirmExit()
+        {
+            if (MessageBox.Show("Çıkmak istediğinize emin misiniz?", "Çıkış", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes) Application.Exit();
         }
     }
 }
