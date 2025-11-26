@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>MN_Barcode.Web</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MN-Barcode.Business\MN-Barcode.Business.csproj" />
+    <ProjectReference Include="..\MN-Barcode.Entities\MN-Barcode.Entities.csproj" />
+  </ItemGroup>
+
+</Project>
