@@ -7,7 +7,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace MN_Barcode.Entities
 {
-    public class Product : SaaSEntity // Şirkete aittir
+    public class Product : BaseEntity 
     {
         [Required, StringLength(100)]
         public string Name { get; set; }

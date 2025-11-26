@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace MN_Barcode.Entities
 {
-    public class SaleDetail : SaaSEntity
+    public class SaleDetail : BaseEntity
     {
         public int SaleId { get; set; }
         public Sale Sale { get; set; }
@@ -14,7 +14,7 @@ namespace MN_Barcode.Entities
         public int ProductId { get; set; }
         public Product Product { get; set; }
 
-        public decimal SellingPrice { get; set; } // O anki fiyat
+        public decimal SellingPrice { get; set; } 
         public double Quantity { get; set; }
         public decimal TotalPrice { get; set; }
     }
