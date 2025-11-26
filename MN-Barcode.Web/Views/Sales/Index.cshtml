@@ -1,0 +1,117 @@
+﻿@{
+    ViewData["Title"] = "Hızlı Satış Ekranı";
+}
+
+@section Styles {
+    <link href="~/css/sales.css" rel="stylesheet" />
+}
+
+<div class="row pos-container">
+
+    <div class="col-md-8 h-100">
+        <div class="left-panel">
+
+            <div class="barcode-area">
+                <div class="input-group input-group-lg">
+                    <span class="input-group-text bg-primary text-white">
+                        <i class="fas fa-barcode"></i>
+                    </span>
+                    <input type="text" id="barcodeInput" class="form-control fw-bold" placeholder="Barkod okutun veya ürün arayın..." autocomplete="off" autofocus>
+                    <button class="btn btn-outline-secondary" type="button"><i class="fas fa-search"></i> Bul</button>
+                </div>
+            </div>
+
+            <div class="product-list">
+                <table class="table table-pos table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th style="width: 40%">Ürün Adı</th>
+                            <th style="width: 25%" class="text-center">Adet</th>
+                            <th style="width: 20%" class="text-end">Fiyat</th>
+                            <th style="width: 15%" class="text-center">İşlem</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cartTableBody">
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="p-3 bg-light border-top d-flex justify-content-between text-muted fw-bold">
+                <span><i class="fas fa-shopping-basket me-2"></i>Sepet</span>
+                <span>Kasiyer: @User.Identity.Name</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4 h-100">
+        <div class="right-panel">
+
+            <div class="total-display">
+                <span class="total-label">GENEL TOPLAM</span>
+                <span class="total-amount" id="grandTotal">₺ 0.00</span>
+            </div>
+
+            <div class="keypad-grid">
+                <button class="btn-key">1</button>
+                <button class="btn-key">2</button>
+                <button class="btn-key">3</button>
+
+                <button class="btn-key">4</button>
+                <button class="btn-key">5</button>
+                <button class="btn-key">6</button>
+
+                <button class="btn-key">7</button>
+                <button class="btn-key">8</button>
+                <button class="btn-key">9</button>
+
+                <button class="btn-key text-danger">C</button>
+                <button class="btn-key">0</button>
+                <button class="btn-key">.</button>
+            </div>
+
+            <div class="d-grid gap-2 mt-3">
+                <div class="row g-2">
+                    <div class="col-6">
+                        <button id="btnCash" class="btn-action bg-cash shadow-sm w-100" onclick="payWithCash()">
+                            <div class="d-flex flex-column align-items-center">
+                                <i class="fas fa-money-bill-wave mb-1"></i>
+                                <span>NAKİT <small class="opacity-75">(F2)</small></span>
+                            </div>
+                        </button>
+                    </div>
+                    <div class="col-6">
+                        <button id="btnCard" class="btn-action bg-card shadow-sm w-100" onclick="payWithCard()">
+                            <div class="d-flex flex-column align-items-center">
+                                <i class="fas fa-credit-card mb-1"></i>
+                                <span>KART <small class="opacity-75">(F3)</small></span>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="row g-2">
+                    <div class="col-6">
+                        <button id="btnHold" class="btn-action bg-warning text-dark shadow-sm w-100" onclick="holdSale()">
+                            <div class="d-flex flex-column align-items-center">
+                                <i class="fas fa-pause mb-1"></i>
+                                <span>BEKLET <small class="opacity-75">(F4)</small></span>
+                            </div>
+                        </button>
+                    </div>
+                    <div class="col-6">
+                        <button id="btnCancel" class="btn-action bg-cancel shadow-sm w-100" onclick="cancelSale()">
+                            <div class="d-flex flex-column align-items-center">
+                                <i class="fas fa-ban mb-1"></i>
+                                <span>İPTAL <small class="opacity-75">(F5)</small></span>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/sales.js"></script>
+}
