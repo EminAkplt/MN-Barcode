@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace MN_Barcode.Entities
 {
-    public class Category : SaaSEntity // Şirkete aittir
+    public class Category : BaseEntity // Şirkete aittir
     {
         [Required, StringLength(50)]
         public string Name { get; set; }

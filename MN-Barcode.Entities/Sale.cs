@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace MN_Barcode.Entities
 {
-    public class Sale : SaaSEntity
+    public class Sale : BaseEntity
     {
         [Required, StringLength(50)]
         public string TransactionCode { get; set; }

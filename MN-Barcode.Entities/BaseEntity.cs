@@ -10,10 +10,5 @@ namespace MN_Barcode.Entities
     {
         public int Id { get; set; }
         public DateTime CreatedDate { get; set; } = DateTime.Now;
-
-        public String CreatedBy { get; set; }
-
-       
-
     }
 }

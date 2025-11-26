@@ -1,0 +1,18 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <RootNamespace>MN_Barcode.WinForms</RootNamespace>
+    <Nullable>enable</Nullable>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MN-Barcode.Business\MN-Barcode.Business.csproj" />
+    <ProjectReference Include="..\MN-Barcode.DataAccess\MN-Barcode.DataAccess.csproj" />
+    <ProjectReference Include="..\MN-Barcode.Entities\MN-Barcode.Entities.csproj" />
+  </ItemGroup>
+
+</Project>
