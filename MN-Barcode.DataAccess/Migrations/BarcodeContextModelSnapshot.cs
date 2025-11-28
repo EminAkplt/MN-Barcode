@@ -69,11 +69,6 @@ namespace MN_Barcode.DataAccess.Migrations
                     b.Property<DateTime?>("CreatedDate")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -129,15 +124,12 @@ namespace MN_Barcode.DataAccess.Migrations
                     b.Property<decimal>("BuyingPrice")
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<int>("CategoryId")
+                    b.Property<int?>("CategoryId")
+                        .HasMaxLength(20)
                         .HasColumnType("int");
 
                     b.Property<DateTime?>("CreatedDate")
                         .HasColumnType("datetime2");
-
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -149,11 +141,6 @@ namespace MN_Barcode.DataAccess.Migrations
 
                     b.Property<double>("StockQuantity")
                         .HasColumnType("float");
-
-                    b.Property<string>("Unit")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
 
                     b.HasKey("Id");
 
@@ -230,9 +217,7 @@ namespace MN_Barcode.DataAccess.Migrations
                 {
                     b.HasOne("MN_Barcode.Entities.Category", "Category")
                         .WithMany("Products")
-                        .HasForeignKey("CategoryId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .HasForeignKey("CategoryId");
 
                     b.Navigation("Category");
                 });

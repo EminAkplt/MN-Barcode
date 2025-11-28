@@ -18,6 +18,50 @@ namespace MN_Barcode.Business
             _context = new BarcodeContext();
         }
 
+
+
+
+        // --- BU METODU ProductService CLASS'ININ İÇİNE EKLE ---
+
+        public Product GetOrCreateQuickProduct(string name, string barcode, decimal defaultPrice)
+        {
+            // 1. Ürün veritabanında var mı?
+            var existingProduct = _context.Products.FirstOrDefault(p => p.Barcode == barcode);
+
+            if (existingProduct != null)
+            {
+                // Varsa onu döndür
+                return existingProduct;
+            }
+
+            // 2. Yoksa, önce "Hızlı Satış" diye bir kategori var mı bakalım
+            var category = _context.Categories.FirstOrDefault(c => c.Name == "Hızlı Satış");
+            if (category == null)
+            {
+                // Kategori yoksa oluştur
+                category = new Category { Name = "Hızlı Satış" };
+                _context.Categories.Add(category);
+                _context.SaveChanges();
+            }
+
+            // 3. Ürünü Oluştur
+            var newProduct = new Product
+            {
+                Name = name,
+                Barcode = barcode,
+                BuyingPrice = 0, // Maliyet 0 olsun
+                SellingPrice = defaultPrice,
+                StockQuantity = 10000, // Stok derdi olmasın
+                CategoryId = category.Id, // Az önce bulduğumuz/oluşturduğumuz kategoriye bağla
+                
+            };
+
+            _context.Products.Add(newProduct);
+            _context.SaveChanges();
+
+            return newProduct;
+        }
+
         // --- Controller'ın Aradığı Metot Bu ---
         public Product GetByBarcode(string barcode)
         {
