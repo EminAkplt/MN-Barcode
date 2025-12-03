@@ -316,7 +316,15 @@ namespace MN_Barcode.WinForms
                 subBtn.Font = new Font("Segoe UI", 11); // Alt menü fontu
                 subBtn.TextAlign = ContentAlignment.MiddleLeft;
                 subBtn.Cursor = Cursors.Hand;
-                subBtn.Click += (s, e) => ShowContent(item);
+
+                // >>> KRİTİK GÜNCELLEME BURASI <<<
+                // Hangi butona basıldıysa ilgili formu aç
+                subBtn.Click += (s, e) =>
+                {
+                    if (item == "Ürün Listesi") ShowForm(new ProductForm()); // Ürün Formunu Aç
+                    else if (item == "Ürün Yönetimi") ShowForm(new ProductForm()); // (İstersen buna da bağla)
+                    else ShowContent(item); // Henüz yapılmayanlar için yazı göster
+                };
 
                 subBtn.MouseEnter += (s, e) => subBtn.ForeColor = Color.White;
                 subBtn.MouseLeave += (s, e) => subBtn.ForeColor = Color.Silver;
