@@ -1,11 +1,8 @@
 ﻿using MN_Barcode.DataAccess;
 using MN_Barcode.Entities;
-using System;
+using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
 
 namespace MN_Barcode.Business
 {
@@ -18,66 +15,84 @@ namespace MN_Barcode.Business
             _context = new BarcodeContext();
         }
 
-
-
-
-        // --- BU METODU ProductService CLASS'ININ İÇİNE EKLE ---
-
-        public Product GetOrCreateQuickProduct(string name, string barcode, decimal defaultPrice)
+        // 1. LİSTELEME (Arama destekli)
+        public List<Product> GetProducts(string search = "")
         {
-            // 1. Ürün veritabanında var mı?
-            var existingProduct = _context.Products.FirstOrDefault(p => p.Barcode == barcode);
+            var query = _context.Products.Include(x => x.Category).AsQueryable();
 
-            if (existingProduct != null)
+            if (!string.IsNullOrEmpty(search))
             {
-                // Varsa onu döndür
-                return existingProduct;
+                // İsimde veya Barkodda ara
+                query = query.Where(x => x.Name.Contains(search) || x.Barcode.Contains(search));
             }
 
-            // 2. Yoksa, önce "Hızlı Satış" diye bir kategori var mı bakalım
-            var category = _context.Categories.FirstOrDefault(c => c.Name == "Hızlı Satış");
-            if (category == null)
+            // En son eklenen en üstte olsun
+            return query.OrderByDescending(x => x.Id).ToList();
+        }
+
+        // 2. TEK ÜRÜN GETİR (ID ile - Düzenleme için lazım olacak)
+        public Product GetById(int id)
+        {
+            return _context.Products.Find(id);
+        }
+
+        // 3. BARKOD İLE GETİR (Satış ekranı için)
+        public Product GetByBarcode(string barcode)
+        {
+            return _context.Products.AsNoTracking().FirstOrDefault(x => x.Barcode == barcode);
+        }
+
+        // 4. HIZLI ÜRÜN OLUŞTURMA (Satış ekranındaki o kod)
+        public Product GetOrCreateQuickProduct(string name, string barcode, decimal defaultPrice)
+        {
+            var existing = _context.Products.FirstOrDefault(p => p.Barcode == barcode);
+            if (existing != null) return existing;
+
+            var cat = _context.Categories.FirstOrDefault(c => c.Name == "Hızlı Satış");
+            if (cat == null)
             {
-                // Kategori yoksa oluştur
-                category = new Category { Name = "Hızlı Satış" };
-                _context.Categories.Add(category);
+                cat = new Category { Name = "Hızlı Satış" };
+                _context.Categories.Add(cat);
                 _context.SaveChanges();
             }
 
-            // 3. Ürünü Oluştur
             var newProduct = new Product
             {
                 Name = name,
                 Barcode = barcode,
-                BuyingPrice = 0, // Maliyet 0 olsun
+                BuyingPrice = 0,
                 SellingPrice = defaultPrice,
-                StockQuantity = 10000, // Stok derdi olmasın
-                CategoryId = category.Id, // Az önce bulduğumuz/oluşturduğumuz kategoriye bağla
-                
+                StockQuantity = 10000,
+                CategoryId = cat.Id
             };
-
             _context.Products.Add(newProduct);
             _context.SaveChanges();
-
             return newProduct;
         }
 
-        // --- Controller'ın Aradığı Metot Bu ---
-        public Product GetByBarcode(string barcode)
+        // 5. EKLEME / GÜNCELLEME
+        public void Save(Product product)
         {
-            // Veritabanına git, barkodu eşleşen ürünü bul.
-            // .Include(x => x.Category) diyerek kategorisini de getiriyoruz.
-            var urun = _context.Products
-                               .Include(x => x.Category)
-                               .FirstOrDefault(x => x.Barcode == barcode);
-
-            return urun;
+            if (product.Id == 0)
+            {
+                _context.Products.Add(product); // Yeni Kayıt
+            }
+            else
+            {
+                _context.Products.Update(product); // Güncelleme
+            }
+            _context.SaveChanges();
         }
 
-        // İleride lazım olur diye bunu da ekleyelim
-        public List<Product> GetAll()
+        // 6. SİLME
+        public void Delete(int id)
         {
-            return _context.Products.Include(x => x.Category).ToList();
+            var product = _context.Products.Find(id);
+            if (product != null)
+            {
+                _context.Products.Remove(product);
+                _context.SaveChanges();
+            }
         }
     }
 }
