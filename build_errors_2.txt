@@ -1,0 +1,13 @@
+﻿  Geri y├╝klenecek projeler belirleniyor...
+  Geri y├╝kleme i├ğin t├╝m projeler g├╝ncel.
+C:\Users\Emin\Desktop\MN-Barcode\MN-Barcode.Entities\Expense.cs(23,2): error CS1513: } bekleniyor [C:\Users\Emin\Desktop\MN-Barcode\MN-Barcode.Entities\MN-Barcode.Entities.csproj]
+
+Olu┼şturma BA┼ŞARISIZ OLDU.
+
+C:\Users\Emin\Desktop\MN-Barcode\MN-Barcode.Entities\Expense.cs(23,2): error CS1513: } bekleniyor [C:\Users\Emin\Desktop\MN-Barcode\MN-Barcode.Entities\MN-Barcode.Entities.csproj]
+    0 Uyar─▒
+    1 Hata
+
+Ge├ğen S├╝re 00:00:01.35
+
+─░┼ş y├╝k├╝ g├╝ncelle┼ştirmeleri var. Daha fazla bilgi i├ğin `dotnet workload list` ├ğal─▒┼şt─▒r─▒n.

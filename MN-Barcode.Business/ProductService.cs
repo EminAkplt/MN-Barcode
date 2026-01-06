@@ -94,5 +94,16 @@ namespace MN_Barcode.Business
                 _context.SaveChanges();
             }
         }
+
+        // 7. STOĞU AZALAN ÜRÜNLER (Dashboard için)
+        public List<Product> GetLowStockProducts(int limit = 10, double threshold = 20)
+        {
+            return _context.Products
+                .Include(x => x.Category)
+                .Where(x => x.StockQuantity <= threshold)
+                .OrderBy(x => x.StockQuantity)
+                .Take(limit)
+                .ToList();
+        }
     }
 }

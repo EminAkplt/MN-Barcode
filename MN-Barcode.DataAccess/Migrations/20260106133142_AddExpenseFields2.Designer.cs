@@ -4,6 +4,7 @@ using MN_Barcode.DataAccess;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace MN_Barcode.DataAccess.Migrations
 {
     [DbContext(typeof(BarcodeContext))]
-    partial class BarcodeContextModelSnapshot : ModelSnapshot
+    [Migration("20260106133142_AddExpenseFields2")]
+    partial class AddExpenseFields2
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

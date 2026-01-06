@@ -1,0 +1,20 @@
+﻿  Geri y├╝klenecek projeler belirleniyor...
+  Geri y├╝kleme i├ğin t├╝m projeler g├╝ncel.
+  MN-Barcode.Entities -> C:\Users\Emin\Desktop\MN-Barcode\MN-Barcode.Entities\bin\Debug\net8.0\MN-Barcode.Entities.dll
+  MN-Barcode.DataAccess -> C:\Users\Emin\Desktop\MN-Barcode\MN-Barcode.DataAccess\bin\Debug\net8.0\MN-Barcode.DataAccess.dll
+  MN-Barcode.Business -> C:\Users\Emin\Desktop\MN-Barcode\MN-Barcode.Business\bin\Debug\net8.0\MN-Barcode.Business.dll
+C:\Users\Emin\Desktop\MN-Barcode\MN-Barcode.WinForms\ExpensesForm.cs(165,25): error CS1061: 'FlowLayoutPanel' bir 'AlignContent' tan─▒m─▒ i├ğermiyor ve 'FlowLayoutPanel' t├╝r├╝nde bir ilk ba─ş─▒ms─▒z de─şi┼şken kabul eden hi├ğbir eri┼şilebilir 'AlignContent' geni┼şletme y├Ântemi bulunamad─▒ (bir kullanma y├Ânergeniz veya derleme ba┼şvurunuz eksik olabilir mi?) [C:\Users\Emin\Desktop\MN-Barcode\MN-Barcode.WinForms\MN-Barcode.WinForms.csproj]
+C:\Users\Emin\Desktop\MN-Barcode\MN-Barcode.WinForms\ExpensesForm.cs(165,40): error CS0103: 'FlowLayoutPanelAlignment' ad─▒ ge├ğerli ba─şlamda yok [C:\Users\Emin\Desktop\MN-Barcode\MN-Barcode.WinForms\MN-Barcode.WinForms.csproj]
+C:\Users\Emin\Desktop\MN-Barcode\MN-Barcode.WinForms\SalesHistoryForm.cs(17,23): warning CS0169: 'SalesHistoryForm._lblTotalCount' alan─▒ hi├ğbir zaman kullan─▒lmaz [C:\Users\Emin\Desktop\MN-Barcode\MN-Barcode.WinForms\MN-Barcode.WinForms.csproj]
+
+Olu┼şturma BA┼ŞARISIZ OLDU.
+
+C:\Users\Emin\Desktop\MN-Barcode\MN-Barcode.WinForms\SalesHistoryForm.cs(17,23): warning CS0169: 'SalesHistoryForm._lblTotalCount' alan─▒ hi├ğbir zaman kullan─▒lmaz [C:\Users\Emin\Desktop\MN-Barcode\MN-Barcode.WinForms\MN-Barcode.WinForms.csproj]
+C:\Users\Emin\Desktop\MN-Barcode\MN-Barcode.WinForms\ExpensesForm.cs(165,25): error CS1061: 'FlowLayoutPanel' bir 'AlignContent' tan─▒m─▒ i├ğermiyor ve 'FlowLayoutPanel' t├╝r├╝nde bir ilk ba─ş─▒ms─▒z de─şi┼şken kabul eden hi├ğbir eri┼şilebilir 'AlignContent' geni┼şletme y├Ântemi bulunamad─▒ (bir kullanma y├Ânergeniz veya derleme ba┼şvurunuz eksik olabilir mi?) [C:\Users\Emin\Desktop\MN-Barcode\MN-Barcode.WinForms\MN-Barcode.WinForms.csproj]
+C:\Users\Emin\Desktop\MN-Barcode\MN-Barcode.WinForms\ExpensesForm.cs(165,40): error CS0103: 'FlowLayoutPanelAlignment' ad─▒ ge├ğerli ba─şlamda yok [C:\Users\Emin\Desktop\MN-Barcode\MN-Barcode.WinForms\MN-Barcode.WinForms.csproj]
+    1 Uyar─▒
+    2 Hata
+
+Ge├ğen S├╝re 00:00:02.33
+
+─░┼ş y├╝k├╝ g├╝ncelle┼ştirmeleri var. Daha fazla bilgi i├ğin `dotnet workload list` ├ğal─▒┼şt─▒r─▒n.

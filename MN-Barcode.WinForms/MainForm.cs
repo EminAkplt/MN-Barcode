@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Drawing;
 using System.Runtime.InteropServices; // Pencereyi mouse ile sürüklemek için gerekli (DLL Import)
 using System.Windows.Forms;
@@ -251,14 +251,14 @@ namespace MN_Barcode.WinForms
             // 3. SATIŞ YÖNETİMİ (Alt Menülü)
             _menuContainer.Controls.Add(CreateAccordionGroup("💰  Satış Yönetimi", new string[] { "Satış Geçmişi", "İade İşlemleri" }));
 
-            // 4. STOK YÖNETİMİ (Alt Menülü)
-            _menuContainer.Controls.Add(CreateAccordionGroup("📦  Stok Yönetimi", new string[] { "Ürün Listesi", "Ürün Yönetimi" }));
+            // 4. STOK YÖNETİMİ (Alt Menülü - Güncellenmiş)
+            _menuContainer.Controls.Add(CreateAccordionGroup("📦  Stok Yönetimi", new string[] { "Ürün Yönetimi", "Stok Dashboard" }));
 
             // 5. RAPORLAR
-            _menuContainer.Controls.Add(CreateSingleMenuButton("📈  Raporlar", (s, e) => ShowContent("Rapor Ekranı")));
+            _menuContainer.Controls.Add(CreateSingleMenuButton("📈  Raporlar", (s, e) => ShowForm(new ReportsForm())));
 
             // 6. GİDERLER (Yeni Eklendi)
-            _menuContainer.Controls.Add(CreateSingleMenuButton("💸  Giderler", (s, e) => ShowContent("Gider Giriş Ekranı")));
+            _menuContainer.Controls.Add(CreateSingleMenuButton("💸  Giderler", (s, e) => MessageBox.Show("Gider Modülü Yükleniyor...", "Bilgi")));
 
             // 7. AYARLAR
             _menuContainer.Controls.Add(CreateSingleMenuButton("⚙️  Ayarlar", (s, e) => ShowContent("Ayarlar")));
@@ -321,8 +321,11 @@ namespace MN_Barcode.WinForms
                 // Hangi butona basıldıysa ilgili formu aç
                 subBtn.Click += (s, e) =>
                 {
-                    if (item == "Ürün Listesi") ShowForm(new ProductForm()); // Ürün Formunu Aç
-                    else if (item == "Ürün Yönetimi") ShowForm(new ProductForm()); // (İstersen buna da bağla)
+                    if (item == "Ürün Yönetimi") ShowForm(new ProductForm());
+                    else if (item == "Stok Dashboard") ShowForm(new StockDashboardForm());
+                    else if (item == "Ürün Listesi") ShowForm(new ProductForm());
+                    else if (item == "Satış Geçmişi") ShowForm(new SalesHistoryForm());
+                    else if (item == "İade İşlemleri") ShowForm(new ReturnsForm());
                     else ShowContent(item); // Henüz yapılmayanlar için yazı göster
                 };
 
