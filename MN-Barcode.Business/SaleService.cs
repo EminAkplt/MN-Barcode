@@ -153,5 +153,34 @@ namespace MN_Barcode.Business
             var today = DateTime.Today;
             return _context.Sales.ToList().Count(x => x.CreatedDate.HasValue && x.CreatedDate.Value.Date == today && x.TotalAmount > 0);
         }
+
+        // AYLIK SATIŞ TOPLAMI (Bu ay)
+        public decimal GetMonthlySalesTotal()
+        {
+            var firstOfMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+            var sales = _context.Sales.ToList()
+                .Where(x => x.CreatedDate.HasValue && 
+                            x.CreatedDate.Value.Date >= firstOfMonth && 
+                            x.TotalAmount > 0);
+            return sales.Sum(x => x.TotalAmount);
+        }
+
+        // TARİH ARALIĞINA GÖRE GÜNLÜK SATIŞLAR (Grafik için)
+        public List<DailySalesData> GetDailySales(DateTime startDate, DateTime endDate)
+        {
+            return _context.Sales.ToList()
+                .Where(x => x.CreatedDate.HasValue && 
+                            x.CreatedDate.Value.Date >= startDate.Date && 
+                            x.CreatedDate.Value.Date <= endDate.Date &&
+                            x.TotalAmount > 0)
+                .GroupBy(x => x.CreatedDate.Value.Date)
+                .Select(g => new DailySalesData 
+                { 
+                    Date = g.Key, 
+                    Total = g.Sum(x => x.TotalAmount)
+                })
+                .OrderBy(x => x.Date)
+                .ToList();
+        }
     }
 }

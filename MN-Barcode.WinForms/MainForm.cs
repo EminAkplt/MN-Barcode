@@ -1,8 +1,9 @@
 using System;
 using System.Drawing;
-using System.Runtime.InteropServices; // Pencereyi mouse ile sürüklemek için gerekli (DLL Import)
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
-using MN_Barcode.Entities; // Veritabanı Varlıkları (AppUser vb.)
+using MN_Barcode.Business;
+using MN_Barcode.Entities;
 using Timer = System.Windows.Forms.Timer;
 
 namespace MN_Barcode.WinForms
@@ -185,8 +186,8 @@ namespace MN_Barcode.WinForms
             // Menüyü Kur
             BuildMenuStructure();
 
-            // Açılış Sayfası
-            ShowContent("Dashboard");
+            // Açılış Sayfası - Yeni Ana Sayfa Dashboard
+            ShowForm(new HomeDashboardForm());
         }
 
         // --- PENCERE BUTONU OLUŞTURUCU (Helper) ---
@@ -242,26 +243,66 @@ namespace MN_Barcode.WinForms
         // ============================================================
         private void BuildMenuStructure()
         {
-            // 1. ANA SAYFA
-            _menuContainer.Controls.Add(CreateSingleMenuButton("📊  Ana Sayfa", (s, e) => ShowContent("Günlük Ciro & Grafikler")));
+            // 1. ANA SAYFA - Yeni Home Dashboard
+            _menuContainer.Controls.Add(CreateSingleMenuButton("📊  Ana Sayfa", (s, e) => ShowForm(new HomeDashboardForm())));
 
-            // 2. HIZLI SATIŞ
-            _menuContainer.Controls.Add(CreateSingleMenuButton("⚡  Hızlı Satış", (s, e) => ShowForm(new SalesForm())));
+            // 2. HIZLI SATIŞ (DevExpress)
+            _menuContainer.Controls.Add(CreateSingleMenuButton("⚡  Hızlı Satış", (s, e) => ShowForm(new SalesFormDX())));
 
             // 3. SATIŞ YÖNETİMİ (Alt Menülü)
             _menuContainer.Controls.Add(CreateAccordionGroup("💰  Satış Yönetimi", new string[] { "Satış Geçmişi", "İade İşlemleri" }));
 
-            // 4. STOK YÖNETİMİ (Alt Menülü - Güncellenmiş)
-            _menuContainer.Controls.Add(CreateAccordionGroup("📦  Stok Yönetimi", new string[] { "Ürün Yönetimi", "Stok Dashboard" }));
+            // 4. STOK YÖNETİMİ (Alt Menülü - Güncellenmiş) - DevExpress Versiyonu
+            _menuContainer.Controls.Add(CreateAccordionGroup("📦  Stok Yönetimi", new string[] { "Ürün Yönetimi (DX)", "Stok Dashboard" }));
 
-            // 5. RAPORLAR
-            _menuContainer.Controls.Add(CreateSingleMenuButton("📈  Raporlar", (s, e) => ShowForm(new ReportsForm())));
+            // 5. RAPORLAR - Şifre korumalı
+            _menuContainer.Controls.Add(CreateSingleMenuButton("📈  Raporlar", (s, e) => OpenReportsWithPassword()));
 
-            // 6. GİDERLER (Yeni Eklendi)
-            _menuContainer.Controls.Add(CreateSingleMenuButton("💸  Giderler", (s, e) => MessageBox.Show("Gider Modülü Yükleniyor...", "Bilgi")));
+            // 6. GİDERLER (DevExpress)
+            _menuContainer.Controls.Add(CreateSingleMenuButton("💸  Giderler", (s, e) => ShowForm(new ExpenseFormDX())));
 
-            // 7. AYARLAR
-            _menuContainer.Controls.Add(CreateSingleMenuButton("⚙️  Ayarlar", (s, e) => ShowContent("Ayarlar")));
+            // 7. AYARLAR - Super Admin şifresi gerekli
+            _menuContainer.Controls.Add(CreateSingleMenuButton("⚙️  Ayarlar", (s, e) => OpenSettingsWithPassword()));
+        }
+
+        private void OpenReportsWithPassword()
+        {
+            var settingsService = new SettingsService();
+            using (var dialog = new PasswordDialog("🔒 Raporlar", "Raporlara erişim için şifre girin:"))
+            {
+                if (dialog.ShowDialog() == DialogResult.OK)
+                {
+                    if (settingsService.ValidateReportsPassword(dialog.EnteredPassword) ||
+                        settingsService.ValidateUserPassword(dialog.EnteredPassword) ||
+                        settingsService.ValidateAdminPassword(dialog.EnteredPassword))
+                    {
+                        ShowForm(new ReportsFormDX());
+                    }
+                    else
+                    {
+                        MessageBox.Show("Yanlış şifre!", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                }
+            }
+        }
+
+        private void OpenSettingsWithPassword()
+        {
+            var settingsService = new SettingsService();
+            using (var dialog = new PasswordDialog("🛡️ Super Admin", "Ayarlara erişim için Super Admin şifresi girin:"))
+            {
+                if (dialog.ShowDialog() == DialogResult.OK)
+                {
+                    if (settingsService.ValidateAdminPassword(dialog.EnteredPassword))
+                    {
+                        ShowForm(new SettingsForm());
+                    }
+                    else
+                    {
+                        MessageBox.Show("Yanlış şifre! Sadece Super Admin erişebilir.", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                }
+            }
         }
 
         // --- TEKLİ MENÜ BUTONU OLUŞTURUCU ---
@@ -322,10 +363,11 @@ namespace MN_Barcode.WinForms
                 subBtn.Click += (s, e) =>
                 {
                     if (item == "Ürün Yönetimi") ShowForm(new ProductForm());
+                    else if (item == "Ürün Yönetimi (DX)") ShowForm(new ProductFormDX());
                     else if (item == "Stok Dashboard") ShowForm(new StockDashboardForm());
                     else if (item == "Ürün Listesi") ShowForm(new ProductForm());
                     else if (item == "Satış Geçmişi") ShowForm(new SalesHistoryForm());
-                    else if (item == "İade İşlemleri") ShowForm(new ReturnsForm());
+                    else if (item == "İade İşlemleri") ShowForm(new ReturnsFormDX());
                     else ShowContent(item); // Henüz yapılmayanlar için yazı göster
                 };
 

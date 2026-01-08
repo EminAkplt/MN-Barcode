@@ -12,7 +12,7 @@ namespace MN_Barcode.Entities
         [Required, StringLength(50)]
         public string Name { get; set; }
 
-        [StringLength(200)]
+    
         
 
         public ICollection<Product> Products { get; set; }
