@@ -40,7 +40,7 @@ namespace MN_Barcode.WinForms
         {
             // Form Ayarları
             this.Text = _isNew ? "Yeni Ürün Ekle" : "Ürün Düzenle";
-            this.Size = new Size(480, 520);
+            this.Size = new Size(480, 580);
             this.StartPosition = FormStartPosition.CenterParent;
             this.FormBorderStyle = FormBorderStyle.None;
             this.BackColor = BgColor;
@@ -94,16 +94,16 @@ namespace MN_Barcode.WinForms
             int labelWidth = 110;
             int inputWidth = 280;
 
+            // BARKOD (ÖNCELİKLİ)
+            content.Controls.Add(CreateLabel("Barkod:", y));
+            txtBarcode = CreateTextBox(y, labelWidth, inputWidth);
+            content.Controls.Add(txtBarcode);
+            y += 55;
+
             // ÜRÜN ADI
             content.Controls.Add(CreateLabel("Ürün Adı:", y));
             txtName = CreateTextBox(y, labelWidth, inputWidth);
             content.Controls.Add(txtName);
-            y += 55;
-
-            // BARKOD
-            content.Controls.Add(CreateLabel("Barkod:", y));
-            txtBarcode = CreateTextBox(y, labelWidth, inputWidth);
-            content.Controls.Add(txtBarcode);
             y += 55;
 
             // KATEGORİ
@@ -234,10 +234,10 @@ namespace MN_Barcode.WinForms
 
         private void BtnSave_Click(object sender, EventArgs e)
         {
-            // Validasyon
-            if (string.IsNullOrWhiteSpace(txtName.Text))
+            // Validasyon - en az barkod veya ürün adı olmalı
+            if (string.IsNullOrWhiteSpace(txtName.Text) && string.IsNullOrWhiteSpace(txtBarcode.Text))
             {
-                MessageBox.Show("Ürün adı boş olamaz!", "Uyarı", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("Barkod veya ürün adı girilmelidir!", "Uyarı", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -251,7 +251,14 @@ namespace MN_Barcode.WinForms
             double.TryParse(txtStock.Text.Replace(",", "."), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double stock);
 
             // Ürünü Güncelle
-            _product.Name = txtName.Text.Trim();
+            // Eğer isim boşsa barkodu kullan
+            string productName = txtName.Text.Trim();
+            if (string.IsNullOrWhiteSpace(productName))
+            {
+                productName = txtBarcode.Text.Trim();
+            }
+            
+            _product.Name = productName;
             _product.Barcode = txtBarcode.Text.Trim();
             _product.BuyingPrice = buyPrice;
             _product.SellingPrice = sellPrice;

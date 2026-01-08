@@ -9,7 +9,7 @@ namespace MN_Barcode.Entities
 {
     public class Product : BaseEntity 
     {
-        [Required, StringLength(100)]
+        [StringLength(100)]
         public string Name { get; set; }
 
         [StringLength(50)]

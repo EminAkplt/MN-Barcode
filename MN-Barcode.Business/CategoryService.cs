@@ -37,5 +37,22 @@ namespace MN_Barcode.Business
                 _context.SaveChanges();
             }
         }
+
+        // Kategori ID'ye göre getir
+        public Category GetById(int id)
+        {
+            return _context.Categories.Find(id);
+        }
+
+        // Kategori güncelle
+        public void Update(Category category)
+        {
+            var existing = _context.Categories.Find(category.Id);
+            if (existing != null)
+            {
+                existing.Name = category.Name;
+                _context.SaveChanges();
+            }
+        }
     }
 }

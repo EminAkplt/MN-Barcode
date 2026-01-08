@@ -17,7 +17,8 @@ namespace MN_Barcode.DataAccess
         public DbSet<Expense> Expenses { get; set; }
         public DbSet<Sale> Sales { get; set; }
         public DbSet<SaleDetail> SaleDetails { get; set; }
-        public DbSet<AppUser> Users { get; set; } // Kullanıcılar tablosu
+        public DbSet<AppUser> Users { get; set; }
+        public DbSet<SystemSettings> Settings { get; set; } // Sistem ayarları
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
