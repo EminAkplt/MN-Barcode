@@ -1,4 +1,4 @@
-﻿using MN_Barcode.DataAccess;
+using MN_Barcode.DataAccess;
 using MN_Barcode.Entities;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -44,10 +44,10 @@ namespace MN_Barcode.Business
                     _context.SaveChanges(); 
                     transaction.Commit(); 
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
                     transaction.Rollback(); 
-                    throw ex; 
+                    throw; 
                 }
             }
         }

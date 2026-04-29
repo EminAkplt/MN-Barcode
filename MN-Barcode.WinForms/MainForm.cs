@@ -246,20 +246,20 @@ namespace MN_Barcode.WinForms
             // 1. ANA SAYFA - Yeni Home Dashboard
             _menuContainer.Controls.Add(CreateSingleMenuButton("📊  Ana Sayfa", (s, e) => ShowForm(new HomeDashboardForm())));
 
-            // 2. HIZLI SATIŞ (DevExpress)
-            _menuContainer.Controls.Add(CreateSingleMenuButton("⚡  Hızlı Satış", (s, e) => ShowForm(new SalesFormDX())));
+            // 2. HIZLI SATIŞ
+            _menuContainer.Controls.Add(CreateSingleMenuButton("⚡  Hızlı Satış", (s, e) => ShowForm(new SalesForm())));
 
             // 3. SATIŞ YÖNETİMİ (Alt Menülü)
             _menuContainer.Controls.Add(CreateAccordionGroup("💰  Satış Yönetimi", new string[] { "Satış Geçmişi", "İade İşlemleri" }));
 
-            // 4. STOK YÖNETİMİ (Alt Menülü - Güncellenmiş) - DevExpress Versiyonu
-            _menuContainer.Controls.Add(CreateAccordionGroup("📦  Stok Yönetimi", new string[] { "Ürün Yönetimi (DX)", "Stok Dashboard" }));
+            // 4. STOK YÖNETİMİ (Alt Menülü)
+            _menuContainer.Controls.Add(CreateAccordionGroup("📦  Stok Yönetimi", new string[] { "Ürün Yönetimi", "Stok Dashboard" }));
 
             // 5. RAPORLAR - Şifre korumalı
             _menuContainer.Controls.Add(CreateSingleMenuButton("📈  Raporlar", (s, e) => OpenReportsWithPassword()));
 
-            // 6. GİDERLER (DevExpress)
-            _menuContainer.Controls.Add(CreateSingleMenuButton("💸  Giderler", (s, e) => ShowForm(new ExpenseFormDX())));
+            // 6. GİDERLER
+            _menuContainer.Controls.Add(CreateSingleMenuButton("💸  Giderler", (s, e) => ShowForm(new ExpenseManagerForm())));
 
             // 7. AYARLAR - Super Admin şifresi gerekli
             _menuContainer.Controls.Add(CreateSingleMenuButton("⚙️  Ayarlar", (s, e) => OpenSettingsWithPassword()));
@@ -276,7 +276,7 @@ namespace MN_Barcode.WinForms
                         settingsService.ValidateUserPassword(dialog.EnteredPassword) ||
                         settingsService.ValidateAdminPassword(dialog.EnteredPassword))
                     {
-                        ShowForm(new ReportsFormDX());
+                        ShowForm(new ReportsForm());
                     }
                     else
                     {
@@ -363,12 +363,10 @@ namespace MN_Barcode.WinForms
                 subBtn.Click += (s, e) =>
                 {
                     if (item == "Ürün Yönetimi") ShowForm(new ProductForm());
-                    else if (item == "Ürün Yönetimi (DX)") ShowForm(new ProductFormDX());
                     else if (item == "Stok Dashboard") ShowForm(new StockDashboardForm());
-                    else if (item == "Ürün Listesi") ShowForm(new ProductForm());
                     else if (item == "Satış Geçmişi") ShowForm(new SalesHistoryForm());
-                    else if (item == "İade İşlemleri") ShowForm(new ReturnsFormDX());
-                    else ShowContent(item); // Henüz yapılmayanlar için yazı göster
+                    else if (item == "İade İşlemleri") ShowForm(new ReturnsForm());
+                    else ShowContent(item);
                 };
 
                 subBtn.MouseEnter += (s, e) => subBtn.ForeColor = Color.White;
