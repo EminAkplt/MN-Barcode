@@ -12,9 +12,6 @@ namespace MN_Barcode.Entities
         [Required, StringLength(50)]
         public string Name { get; set; }
 
-    
-        
-
         public ICollection<Product> Products { get; set; }
     }
 }
