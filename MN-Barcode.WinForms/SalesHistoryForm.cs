@@ -14,7 +14,6 @@ namespace MN_Barcode.WinForms
         private DateTimePicker _dtStart;
         private DateTimePicker _dtEnd;
         private Label _lblTotalRevenue;
-        private Label _lblTotalCount;
 
         public SalesHistoryForm()
         {
