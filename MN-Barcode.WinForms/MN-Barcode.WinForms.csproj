@@ -10,6 +10,14 @@
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
   </PropertyGroup>
 
+  <!-- appsettings.json her derlemede cikti klasorune kopyalansin ki
+       uygulama calistiginda baglanti cumlesini okuyabilsin. -->
+  <ItemGroup>
+    <None Update="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\MN-Barcode.Business\MN-Barcode.Business.csproj" />
     <ProjectReference Include="..\MN-Barcode.DataAccess\MN-Barcode.DataAccess.csproj" />
