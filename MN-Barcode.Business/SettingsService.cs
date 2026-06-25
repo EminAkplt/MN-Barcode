@@ -4,11 +4,14 @@ using System.Linq;
 
 namespace MN_Barcode.Business
 {
+    /// <summary>
+    /// Sistem ayarları (şifreler vb.) iş mantığı servisi.
+    /// Ayarlar anahtar-değer (key-value) olarak Settings tablosunda tutulur.
+    /// Her metot kendi kısa ömürlü context'ini kullanır (bkz. CategoryService notu).
+    /// </summary>
     public class SettingsService
     {
-        private BarcodeContext _context;
-
-        // Default şifreler
+        // Default şifreler ve ayar anahtarları
         public const string DEFAULT_PASSWORD = "123";
         public const string KEY_USER_PASSWORD = "UserPassword";
         public const string KEY_ADMIN_PASSWORD = "AdminPassword";
@@ -16,59 +19,64 @@ namespace MN_Barcode.Business
 
         public SettingsService()
         {
-            _context = new BarcodeContext();
+            // İlk kurulumda varsayılan ayarların var olduğundan emin ol.
             EnsureDefaultSettings();
         }
 
         /// <summary>
-        /// Default ayarları oluştur (ilk kurulum için)
+        /// Default ayarları oluştur (ilk kurulum için). Eksik anahtarları ekler.
         /// </summary>
         private void EnsureDefaultSettings()
         {
+            using var context = new BarcodeContext();
             bool hasChanges = false;
 
-            if (!_context.Settings.Any(s => s.SettingKey == KEY_USER_PASSWORD))
+            if (!context.Settings.Any(s => s.SettingKey == KEY_USER_PASSWORD))
             {
-                _context.Settings.Add(new SystemSettings { SettingKey = KEY_USER_PASSWORD, SettingValue = DEFAULT_PASSWORD });
+                context.Settings.Add(new SystemSettings { SettingKey = KEY_USER_PASSWORD, SettingValue = DEFAULT_PASSWORD });
                 hasChanges = true;
             }
 
-            if (!_context.Settings.Any(s => s.SettingKey == KEY_ADMIN_PASSWORD))
+            if (!context.Settings.Any(s => s.SettingKey == KEY_ADMIN_PASSWORD))
             {
-                _context.Settings.Add(new SystemSettings { SettingKey = KEY_ADMIN_PASSWORD, SettingValue = DEFAULT_PASSWORD });
+                context.Settings.Add(new SystemSettings { SettingKey = KEY_ADMIN_PASSWORD, SettingValue = DEFAULT_PASSWORD });
                 hasChanges = true;
             }
 
-            if (!_context.Settings.Any(s => s.SettingKey == KEY_REPORTS_PASSWORD))
+            if (!context.Settings.Any(s => s.SettingKey == KEY_REPORTS_PASSWORD))
             {
-                _context.Settings.Add(new SystemSettings { SettingKey = KEY_REPORTS_PASSWORD, SettingValue = DEFAULT_PASSWORD });
+                context.Settings.Add(new SystemSettings { SettingKey = KEY_REPORTS_PASSWORD, SettingValue = DEFAULT_PASSWORD });
                 hasChanges = true;
             }
 
             if (hasChanges)
             {
-                _context.SaveChanges();
+                context.SaveChanges();
             }
         }
 
+        /// <summary>Verilen anahtarın değerini getirir (yoksa boş metin).</summary>
         public string GetSetting(string key)
         {
-            var setting = _context.Settings.FirstOrDefault(s => s.SettingKey == key);
+            using var context = new BarcodeContext();
+            var setting = context.Settings.FirstOrDefault(s => s.SettingKey == key);
             return setting?.SettingValue ?? "";
         }
 
+        /// <summary>Anahtar varsa değerini günceller, yoksa yeni ayar ekler.</summary>
         public void SetSetting(string key, string value)
         {
-            var setting = _context.Settings.FirstOrDefault(s => s.SettingKey == key);
+            using var context = new BarcodeContext();
+            var setting = context.Settings.FirstOrDefault(s => s.SettingKey == key);
             if (setting != null)
             {
                 setting.SettingValue = value;
             }
             else
             {
-                _context.Settings.Add(new SystemSettings { SettingKey = key, SettingValue = value });
+                context.Settings.Add(new SystemSettings { SettingKey = key, SettingValue = value });
             }
-            _context.SaveChanges();
+            context.SaveChanges();
         }
 
         public bool ValidateUserPassword(string password)
@@ -102,33 +110,30 @@ namespace MN_Barcode.Business
         }
 
         /// <summary>
-        /// Tüm sistemi sıfırla (Users tablosu hariç)
+        /// Tüm sistemi sıfırla (Users tablosu hariç): ürün, kategori, gider, satış
+        /// verilerini siler ve şifreleri varsayılana döndürür.
         /// </summary>
         public void ResetSystem()
         {
-            // Products
-            _context.Products.RemoveRange(_context.Products.ToList());
-            
-            // Categories
-            _context.Categories.RemoveRange(_context.Categories.ToList());
-            
-            // Expenses
-            _context.Expenses.RemoveRange(_context.Expenses.ToList());
-            
-            // Sales & SaleDetails
-            _context.SaleDetails.RemoveRange(_context.SaleDetails.ToList());
-            _context.Sales.RemoveRange(_context.Sales.ToList());
-            
-            // Settings - şifreleri resetle
-            var userPwd = _context.Settings.FirstOrDefault(s => s.SettingKey == KEY_USER_PASSWORD);
-            var adminPwd = _context.Settings.FirstOrDefault(s => s.SettingKey == KEY_ADMIN_PASSWORD);
-            var reportsPwd = _context.Settings.FirstOrDefault(s => s.SettingKey == KEY_REPORTS_PASSWORD);
-            
+            using var context = new BarcodeContext();
+
+            // Veri tablolarını temizle.
+            context.Products.RemoveRange(context.Products);
+            context.Categories.RemoveRange(context.Categories);
+            context.Expenses.RemoveRange(context.Expenses);
+            context.SaleDetails.RemoveRange(context.SaleDetails);
+            context.Sales.RemoveRange(context.Sales);
+
+            // Şifre ayarlarını varsayılana döndür.
+            var userPwd = context.Settings.FirstOrDefault(s => s.SettingKey == KEY_USER_PASSWORD);
+            var adminPwd = context.Settings.FirstOrDefault(s => s.SettingKey == KEY_ADMIN_PASSWORD);
+            var reportsPwd = context.Settings.FirstOrDefault(s => s.SettingKey == KEY_REPORTS_PASSWORD);
+
             if (userPwd != null) userPwd.SettingValue = DEFAULT_PASSWORD;
             if (adminPwd != null) adminPwd.SettingValue = DEFAULT_PASSWORD;
             if (reportsPwd != null) reportsPwd.SettingValue = DEFAULT_PASSWORD;
-            
-            _context.SaveChanges();
+
+            context.SaveChanges();
         }
     }
 }

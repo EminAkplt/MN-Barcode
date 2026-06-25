@@ -1,4 +1,4 @@
-﻿using MN_Barcode.DataAccess;
+using MN_Barcode.DataAccess;
 using MN_Barcode.Entities;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
@@ -6,54 +6,61 @@ using System.Linq;
 
 namespace MN_Barcode.Business
 {
+    /// <summary>
+    /// Ürün iş mantığı servisi.
+    /// Her metot kendi kısa ömürlü context'ini kullanır (bkz. CategoryService notu).
+    /// </summary>
     public class ProductService
     {
-        private BarcodeContext _context;
-
-        public ProductService()
-        {
-            _context = new BarcodeContext();
-        }
-
         // 1. LİSTELEME (Arama destekli)
         public List<Product> GetProducts(string search = "")
         {
-            var query = _context.Products.Include(x => x.Category).AsQueryable();
+            using var context = new BarcodeContext();
+
+            // Kategori bilgisini de birlikte çek (Include).
+            var query = context.Products.Include(x => x.Category).AsQueryable();
 
             if (!string.IsNullOrEmpty(search))
             {
-                // İsimde veya Barkodda ara
+                // İsimde veya Barkodda ara (filtre veritabanında çalışır).
                 query = query.Where(x => x.Name.Contains(search) || x.Barcode.Contains(search));
             }
 
-            // En son eklenen en üstte olsun
+            // En son eklenen en üstte olsun.
             return query.OrderByDescending(x => x.Id).ToList();
         }
 
         // 2. TEK ÜRÜN GETİR (ID ile - Düzenleme için lazım olacak)
         public Product GetById(int id)
         {
-            return _context.Products.Find(id);
+            using var context = new BarcodeContext();
+            return context.Products.Find(id);
         }
 
         // 3. BARKOD İLE GETİR (Satış ekranı için)
         public Product GetByBarcode(string barcode)
         {
-            return _context.Products.AsNoTracking().FirstOrDefault(x => x.Barcode == barcode);
+            using var context = new BarcodeContext();
+            // AsNoTracking: Sadece okuma; takip maliyeti olmadan hızlı sonuç.
+            return context.Products.AsNoTracking().FirstOrDefault(x => x.Barcode == barcode);
         }
 
         // 4. HIZLI ÜRÜN OLUŞTURMA (Satış ekranındaki o kod)
+        //    Barkodu olan ürünü getirir; yoksa "Hızlı Satış" kategorisinde oluşturur.
         public Product GetOrCreateQuickProduct(string name, string barcode, decimal defaultPrice)
         {
-            var existing = _context.Products.FirstOrDefault(p => p.Barcode == barcode);
+            using var context = new BarcodeContext();
+
+            var existing = context.Products.FirstOrDefault(p => p.Barcode == barcode);
             if (existing != null) return existing;
 
-            var cat = _context.Categories.FirstOrDefault(c => c.Name == "Hızlı Satış");
+            // "Hızlı Satış" kategorisi yoksa oluştur.
+            var cat = context.Categories.FirstOrDefault(c => c.Name == "Hızlı Satış");
             if (cat == null)
             {
                 cat = new Category { Name = "Hızlı Satış" };
-                _context.Categories.Add(cat);
-                _context.SaveChanges();
+                context.Categories.Add(cat);
+                context.SaveChanges();
             }
 
             var newProduct = new Product
@@ -62,43 +69,48 @@ namespace MN_Barcode.Business
                 Barcode = barcode,
                 BuyingPrice = 0,
                 SellingPrice = defaultPrice,
-                StockQuantity = 10000,
+                StockQuantity = 10000, // Hızlı ürünlerde stok takibi yapılmadığı için yüksek değer
                 CategoryId = cat.Id
             };
-            _context.Products.Add(newProduct);
-            _context.SaveChanges();
+            context.Products.Add(newProduct);
+            context.SaveChanges();
             return newProduct;
         }
 
         // 5. EKLEME / GÜNCELLEME
         public void Save(Product product)
         {
+            using var context = new BarcodeContext();
+
             if (product.Id == 0)
             {
-                _context.Products.Add(product); // Yeni Kayıt
+                context.Products.Add(product);    // Yeni Kayıt (Id henüz yok)
             }
             else
             {
-                _context.Products.Update(product); // Güncelleme
+                context.Products.Update(product); // Mevcut kaydı güncelle
             }
-            _context.SaveChanges();
+            context.SaveChanges();
         }
 
         // 6. SİLME
         public void Delete(int id)
         {
-            var product = _context.Products.Find(id);
+            using var context = new BarcodeContext();
+            var product = context.Products.Find(id);
             if (product != null)
             {
-                _context.Products.Remove(product);
-                _context.SaveChanges();
+                context.Products.Remove(product);
+                context.SaveChanges();
             }
         }
 
         // 7. STOĞU AZALAN ÜRÜNLER (Dashboard için)
         public List<Product> GetLowStockProducts(int limit = 10, double threshold = 20)
         {
-            return _context.Products
+            using var context = new BarcodeContext();
+            // Eşik altındaki ürünleri, en az stoğu olan en üstte olacak şekilde getir.
+            return context.Products
                 .Include(x => x.Category)
                 .Where(x => x.StockQuantity <= threshold)
                 .OrderBy(x => x.StockQuantity)
