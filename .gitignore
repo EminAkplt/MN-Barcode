@@ -361,3 +361,9 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+# Proje koku build/hata loglari (cope) - tekrar commitlenmesin
+/build_*.txt
+/error*.txt
+/errors.txt
+/simple.txt
+/*.log
