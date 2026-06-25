@@ -7,62 +7,66 @@ using System.Linq;
 
 namespace MN_Barcode.Business
 {
+    /// <summary>
+    /// Satış iş mantığı servisi.
+    /// Her metot kendi kısa ömürlü context'ini kullanır (bkz. CategoryService notu).
+    /// </summary>
     public class SaleService
     {
-        private BarcodeContext _context;
-
-        public SaleService()
-        {
-            _context = new BarcodeContext();
-        }
-
         // SATIŞI KAYDET VE STOKTAN DÜŞ (Transaction ile Güvenli İşlem)
+        // Fiş ve detaylar ya tamamen kaydedilir ya da (hata olursa) hiçbiri kaydedilmez.
         public void CompleteSale(Sale sale, List<SaleDetail> details)
         {
-            using (var transaction = _context.Database.BeginTransaction())
+            using var context = new BarcodeContext();
+            using var transaction = context.Database.BeginTransaction();
+            try
             {
-                try
-                {
-                    // 1. FİŞİ KAYDET
-                    sale.CreatedDate = DateTime.Now;
-                    _context.Sales.Add(sale);
-                    _context.SaveChanges(); 
+                // 1. FİŞİ KAYDET
+                sale.CreatedDate = DateTime.Now;
+                context.Sales.Add(sale);
+                context.SaveChanges(); // sale.Id burada üretilir
 
-                    // 2. DETAYLARI EKLE VE STOKTAN DÜŞ
-                    foreach (var item in details)
+                // 2. DETAYLARI EKLE VE STOKTAN DÜŞ
+                foreach (var item in details)
+                {
+                    item.SaleId = sale.Id;
+                    context.SaleDetails.Add(item);
+
+                    // İlgili ürünün stoğunu güncelle (iade ise Quantity negatif olduğundan stok artar).
+                    var product = context.Products.Find(item.ProductId);
+                    if (product != null)
                     {
-                        item.SaleId = sale.Id;
-                        _context.SaleDetails.Add(item);
-
-                        var product = _context.Products.Find(item.ProductId);
-                        if (product != null)
-                        {
-                            product.StockQuantity -= item.Quantity;
-                        }
+                        product.StockQuantity -= item.Quantity;
                     }
+                }
 
-                    _context.SaveChanges(); 
-                    transaction.Commit(); 
-                }
-                catch (Exception)
-                {
-                    transaction.Rollback(); 
-                    throw; 
-                }
+                context.SaveChanges();
+                transaction.Commit(); // Her şey başarılı -> kalıcı yap
+            }
+            catch (Exception)
+            {
+                transaction.Rollback(); // Hata -> hiçbir şeyi kaydetme
+                throw;
             }
         }
 
         // EN ÇOK SATILAN ÜRÜNLER (Tarih Filtreli)
         public List<TopSellingProduct> GetTopSellingProducts(int limit = 10, DateTime? startDate = null, DateTime? endDate = null)
         {
+            using var context = new BarcodeContext();
+
             DateTime start = startDate ?? DateTime.MinValue;
             DateTime end = endDate ?? DateTime.MaxValue;
 
-            var rawData = _context.SaleDetails
+            // FİLTRELEMEYİ VERİTABANINA YAPTIRIYORUZ (Where, ToList'TEN ÖNCE).
+            // Böylece tüm tabloyu RAM'e çekmek yerine sadece tarih aralığındaki
+            // ve satış (Quantity > 0) olan satırlar gelir. Büyük veride hayati fark.
+            var rawData = context.SaleDetails
                 .Include(x => x.Sale)
-                .ToList() // Client-side evaluation
-                .Where(x => x.Sale.CreatedDate >= start && x.Sale.CreatedDate <= end && x.Quantity > 0);
+                .Where(x => x.Sale.CreatedDate >= start && x.Sale.CreatedDate <= end && x.Quantity > 0)
+                .ToList();
 
+            // Gruplama (ürün bazında topla) bellekte yapılır; veri zaten küçülmüş durumda.
             var grouped = rawData
                 .GroupBy(x => x.ProductId)
                 .Select(g => new TopSellingProduct
@@ -75,20 +79,23 @@ namespace MN_Barcode.Business
                 .Take(limit)
                 .ToList();
 
-            FillProductDetails(grouped);
+            FillProductDetails(context, grouped);
             return grouped;
         }
 
         // EN ÇOK İADE EDİLEN ÜRÜNLER
         public List<TopSellingProduct> GetTopReturnedProducts(int limit = 10, DateTime? startDate = null, DateTime? endDate = null)
         {
+            using var context = new BarcodeContext();
+
             DateTime start = startDate ?? DateTime.MinValue;
             DateTime end = endDate ?? DateTime.MaxValue;
 
-            var rawData = _context.SaleDetails
+            // Filtre veritabanında çalışır; sadece iade satırları (Quantity < 0) gelir.
+            var rawData = context.SaleDetails
                 .Include(x => x.Sale)
-                .ToList()
-                .Where(x => x.Sale.CreatedDate >= start && x.Sale.CreatedDate <= end && x.Quantity < 0); // Negatif miktar = İade
+                .Where(x => x.Sale.CreatedDate >= start && x.Sale.CreatedDate <= end && x.Quantity < 0) // Negatif miktar = İade
+                .ToList();
 
             var grouped = rawData
                 .GroupBy(x => x.ProductId)
@@ -102,15 +109,17 @@ namespace MN_Barcode.Business
                 .Take(limit)
                 .ToList();
 
-            FillProductDetails(grouped);
+            FillProductDetails(context, grouped);
             return grouped;
         }
 
-        private void FillProductDetails(List<TopSellingProduct> list)
+        // Gruplanmış sonuçlara ürün adı/barkod bilgisini doldurur.
+        // (Aynı context'i kullanır ki ekstra bağlantı açılmasın.)
+        private void FillProductDetails(BarcodeContext context, List<TopSellingProduct> list)
         {
             foreach (var item in list)
             {
-                var product = _context.Products.Find(item.ProductId);
+                var product = context.Products.Find(item.ProductId);
                 if (product != null)
                 {
                     item.ProductName = product.Name;
@@ -122,8 +131,9 @@ namespace MN_Barcode.Business
         // SATIŞ GEÇMİŞİ (Sadece normal satışlar)
         public List<Sale> GetSalesHistory(DateTime startDate, DateTime endDate)
         {
-            return _context.Sales
-                .ToList()
+            using var context = new BarcodeContext();
+            // Filtre veritabanında: tüm tabloyu çekmeden sadece ilgili kayıtlar gelir.
+            return context.Sales
                 .Where(x => x.CreatedDate >= startDate && x.CreatedDate <= endDate && x.TotalAmount >= 0)
                 .OrderByDescending(x => x.CreatedDate)
                 .ToList();
@@ -132,8 +142,9 @@ namespace MN_Barcode.Business
         // İADE GEÇMİŞİ (Sadece iadeler)
         public List<Sale> GetReturnsHistory(DateTime startDate, DateTime endDate)
         {
-            return _context.Sales
-                .ToList()
+            using var context = new BarcodeContext();
+            // TotalAmount < 0 olan fişler iadedir; filtre veritabanında uygulanır.
+            return context.Sales
                 .Where(x => x.CreatedDate >= startDate && x.CreatedDate <= endDate && x.TotalAmount < 0)
                 .OrderByDescending(x => x.CreatedDate)
                 .ToList();
@@ -142,41 +153,63 @@ namespace MN_Barcode.Business
         // BUGÜNKÜ SATIŞ TOPLAMI
         public decimal GetTodaySalesTotal()
         {
-            var today = DateTime.Today;
-            var sales = _context.Sales.ToList().Where(x => x.CreatedDate.HasValue && x.CreatedDate.Value.Date == today && x.TotalAmount > 0);
-            return sales.Sum(x => x.TotalAmount);
+            using var context = new BarcodeContext();
+
+            // Bugünün başı (00:00) ile yarının başı arasını sorgula.
+            // ".Date" yerine aralık karşılaştırması kullanmak veritabanı dostudur (index kullanır).
+            DateTime bugun = DateTime.Today;
+            DateTime yarin = bugun.AddDays(1);
+
+            // Sum doğrudan veritabanında çalışır; satırlar belleğe çekilmez.
+            return context.Sales
+                .Where(x => x.CreatedDate >= bugun && x.CreatedDate < yarin && x.TotalAmount > 0)
+                .Sum(x => (decimal?)x.TotalAmount) ?? 0m; // Kayıt yoksa null -> 0
         }
 
         // BUGÜNKÜ SATIŞ SAYISI
         public int GetTodaySalesCount()
         {
-            var today = DateTime.Today;
-            return _context.Sales.ToList().Count(x => x.CreatedDate.HasValue && x.CreatedDate.Value.Date == today && x.TotalAmount > 0);
+            using var context = new BarcodeContext();
+
+            DateTime bugun = DateTime.Today;
+            DateTime yarin = bugun.AddDays(1);
+
+            // Count veritabanında çalışır.
+            return context.Sales
+                .Count(x => x.CreatedDate >= bugun && x.CreatedDate < yarin && x.TotalAmount > 0);
         }
 
         // AYLIK SATIŞ TOPLAMI (Bu ay)
         public decimal GetMonthlySalesTotal()
         {
-            var firstOfMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
-            var sales = _context.Sales.ToList()
-                .Where(x => x.CreatedDate.HasValue && 
-                            x.CreatedDate.Value.Date >= firstOfMonth && 
-                            x.TotalAmount > 0);
-            return sales.Sum(x => x.TotalAmount);
+            using var context = new BarcodeContext();
+
+            // Ayın ilk günü (örn. 01.06.2026 00:00).
+            DateTime ayinIlkGunu = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+
+            return context.Sales
+                .Where(x => x.CreatedDate >= ayinIlkGunu && x.TotalAmount > 0)
+                .Sum(x => (decimal?)x.TotalAmount) ?? 0m;
         }
 
         // TARİH ARALIĞINA GÖRE GÜNLÜK SATIŞLAR (Grafik için)
         public List<DailySalesData> GetDailySales(DateTime startDate, DateTime endDate)
         {
-            return _context.Sales.ToList()
-                .Where(x => x.CreatedDate.HasValue && 
-                            x.CreatedDate.Value.Date >= startDate.Date && 
-                            x.CreatedDate.Value.Date <= endDate.Date &&
-                            x.TotalAmount > 0)
-                .GroupBy(x => x.CreatedDate.Value.Date)
-                .Select(g => new DailySalesData 
-                { 
-                    Date = g.Key, 
+            using var context = new BarcodeContext();
+
+            // Aralığı gün bazına normalize et: başlangıç günü 00:00, bitiş gününün sonu (ertesi gün 00:00).
+            DateTime baslangic = startDate.Date;
+            DateTime bitisHaric = endDate.Date.AddDays(1); // bitiş gününü de kapsasın diye ertesi gün (hariç)
+
+            // Önce veritabanında filtrele (sadece aralıktaki satış kayıtları),
+            // sonra gün bazında gruplamayı bellekte yap.
+            return context.Sales
+                .Where(x => x.CreatedDate >= baslangic && x.CreatedDate < bitisHaric && x.TotalAmount > 0)
+                .ToList()
+                .GroupBy(x => x.CreatedDate.Value.Date) // Yukarıdaki filtre null'ları zaten eler
+                .Select(g => new DailySalesData
+                {
+                    Date = g.Key,
                     Total = g.Sum(x => x.TotalAmount)
                 })
                 .OrderBy(x => x.Date)

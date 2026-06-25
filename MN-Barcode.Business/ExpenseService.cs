@@ -6,38 +6,44 @@ using System.Linq;
 
 namespace MN_Barcode.Business
 {
+    /// <summary>
+    /// Gider iş mantığı servisi.
+    /// Her metot kendi kısa ömürlü context'ini kullanır (bkz. CategoryService notu).
+    /// </summary>
     public class ExpenseService
     {
-        private BarcodeContext _context;
-
-        public ExpenseService()
-        {
-            _context = new BarcodeContext();
-        }
-
         // Gider Ekle
         public void Add(Expense expense)
         {
-            _context.Expenses.Add(expense);
-            _context.SaveChanges();
+            using var context = new BarcodeContext();
+            context.Expenses.Add(expense);
+            context.SaveChanges();
         }
 
         // Gider Sil
         public void Delete(int id)
         {
-            var expense = _context.Expenses.Find(id);
+            using var context = new BarcodeContext();
+            var expense = context.Expenses.Find(id);
             if (expense != null)
             {
-                _context.Expenses.Remove(expense);
-                _context.SaveChanges();
+                context.Expenses.Remove(expense);
+                context.SaveChanges();
             }
         }
 
         // Gider Listele (Tarih Aralığına Göre)
         public List<Expense> GetExpenses(DateTime startDate, DateTime endDate)
         {
-            return _context.Expenses.ToList()
-                .Where(x => x.ExpenseDate.Date >= startDate.Date && x.ExpenseDate.Date <= endDate.Date)
+            using var context = new BarcodeContext();
+
+            // Aralığı gün bazına normalize et (başlangıç günü 00:00, bitiş gününün sonu).
+            DateTime baslangic = startDate.Date;
+            DateTime bitisHaric = endDate.Date.AddDays(1);
+
+            // Filtre veritabanında uygulanır; tüm gider tablosu belleğe çekilmez.
+            return context.Expenses
+                .Where(x => x.ExpenseDate >= baslangic && x.ExpenseDate < bitisHaric)
                 .OrderByDescending(x => x.ExpenseDate)
                 .ToList();
         }
@@ -45,9 +51,15 @@ namespace MN_Barcode.Business
         // Toplam Gider (Tarih Aralığına Göre)
         public decimal GetTotalExpense(DateTime startDate, DateTime endDate)
         {
-            return _context.Expenses.ToList()
-                .Where(x => x.ExpenseDate.Date >= startDate.Date && x.ExpenseDate.Date <= endDate.Date)
-                .Sum(x => x.Amount);
+            using var context = new BarcodeContext();
+
+            DateTime baslangic = startDate.Date;
+            DateTime bitisHaric = endDate.Date.AddDays(1);
+
+            // Toplam doğrudan veritabanında hesaplanır.
+            return context.Expenses
+                .Where(x => x.ExpenseDate >= baslangic && x.ExpenseDate < bitisHaric)
+                .Sum(x => (decimal?)x.Amount) ?? 0m; // Kayıt yoksa 0
         }
     }
 }
