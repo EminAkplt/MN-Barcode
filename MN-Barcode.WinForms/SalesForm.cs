@@ -26,14 +26,7 @@ namespace MN_Barcode.WinForms
         private List<SaleDetail> _cartDetails;
         private bool _isReturnMode = false;
 
-        // --- BARKOD OKUYUCU (Global yakalama) ---
-        // USB barkod okuyucular "klavye taklidi" yapar: barkodu hızlıca yazıp Enter'a basar.
-        // Aşağıdaki tampon (buffer) ve zaman damgası, gelen tuşların İNSAN mı yoksa
-        // OKUYUCU mu olduğunu ayırt etmek için kullanılır (okuyucu çok hızlıdır).
-        private string _scanBuffer = "";                    // Okuyucudan gelen karakterler burada birikir
-        private DateTime _lastScanKey = DateTime.MinValue;  // Son tuşun zamanı
-        private const int ScanGapMs = 100;                  // İki tuş arası bu süreden uzunsa "insan yazıyor" kabul edilir
-        private const int MinScanLength = 3;                // Geçerli barkod için en az karakter sayısı
+
 
         public SalesForm()
         {
@@ -315,7 +308,7 @@ namespace MN_Barcode.WinForms
         //  Hem manuel girişten hem de okuyucudan gelen barkodu işler:
         //  ürünü bul, sepete ekle; bulamazsa uyar.
         // ============================================================
-        private void ProcessScannedBarcode(string code)
+        public void ProcessScannedBarcode(string code)
         {
             code = (code ?? "").Trim();
             if (string.IsNullOrEmpty(code)) return;
@@ -335,20 +328,11 @@ namespace MN_Barcode.WinForms
         }
 
         // ============================================================
-        //  GLOBAL TUŞ YAKALAMA (ProcessCmdKey)
-        //  SalesForm, MainForm içine GÖMÜLÜ (TopLevel=false) çalıştığı için
-        //  normal KeyPreview güvenilir değildir. ProcessCmdKey ise odak hangi
-        //  kontrolde olursa olsun (buton, grid, kutu) tüm tuşları yakalar.
-        //
-        //  Mantık:
-        //   - Hızlı (okuyucu) gelen rakam/harfler tampona biriktirilir.
-        //   - Enter geldiğinde tampon yeterince uzunsa => OKUYUCU okuması olarak işlenir.
-        //   - Yavaş (insan) girişlerde tampon sıfırlanır, Enter normal akışa bırakılır.
-        //   - F2/F3/F4/F5/F6 kısayolları her yerde çalışır.
+        //  FONKSİYON KISAYOLLARI (F2-F6)
+        //  MainForm üzerinden yönlendirilir.
         // ============================================================
-        protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+        public bool ProcessShortcut(Keys keyData)
         {
-            // Fonksiyon tuşu kısayolları (odak neresi olursa olsun çalışır)
             switch (keyData)
             {
                 case Keys.F2: CompleteSale(PaymentType.Nakit); return true;
@@ -357,56 +341,7 @@ namespace MN_Barcode.WinForms
                 case Keys.F5: ClearCart(); return true;
                 case Keys.F6: ToggleReturnMode(); return true;
             }
-
-            // İki tuş arasındaki süreyi ölç: uzun ara => insan yazıyor, tamponu sıfırla.
-            DateTime now = DateTime.Now;
-            if ((now - _lastScanKey).TotalMilliseconds > ScanGapMs)
-                _scanBuffer = "";
-            _lastScanKey = now;
-
-            // Enter: biriken tampon yeterince uzunsa okuyucu okuması olarak işle.
-            if (keyData == Keys.Enter)
-            {
-                if (_scanBuffer.Length >= MinScanLength)
-                {
-                    string code = _scanBuffer;
-                    _scanBuffer = "";
-                    ProcessScannedBarcode(code);
-                    return true; // Tükettik; başka handler'a gitmesin
-                }
-                _scanBuffer = "";
-                // Kısa/insan girişi => normal akışa bırak (manuel kutu Enter handler'ı çalışsın)
-                return base.ProcessCmdKey(ref msg, keyData);
-            }
-
-            // Yazılabilir karakterleri (rakam/harf/tire) tampona ekle.
-            char c = KeyToChar(keyData);
-            if (c != '\0')
-            {
-                _scanBuffer += c;
-                // NOT: Karakteri tüketmiyoruz (return base). Böylece odak barkod
-                // kutusundaysa kullanıcı yazdığını ekranda görmeye devam eder.
-            }
-
-            return base.ProcessCmdKey(ref msg, keyData);
-        }
-
-        // Keys değerini barkodda kullanılan karaktere çevirir (rakam, harf, tire).
-        // Barkodların çoğu rakamdır; harf ve tire de Code39 gibi türler için desteklenir.
-        private static char KeyToChar(Keys keyData)
-        {
-            Keys key = keyData & Keys.KeyCode; // Shift/Ctrl gibi ek bitleri ayıkla
-
-            // Üst sıra rakamlar (D0-D9)
-            if (key >= Keys.D0 && key <= Keys.D9) return (char)('0' + (key - Keys.D0));
-            // Numpad rakamlar
-            if (key >= Keys.NumPad0 && key <= Keys.NumPad9) return (char)('0' + (key - Keys.NumPad0));
-            // Harfler (A-Z) -> büyük harf
-            if (key >= Keys.A && key <= Keys.Z) return (char)('A' + (key - Keys.A));
-            // Tire / eksi
-            if (key == Keys.OemMinus || key == Keys.Subtract) return '-';
-
-            return '\0'; // Yazılamaz tuş (yok say)
+            return false;
         }
 
         // Ekran (gömülü form) görünür olduğunda odağı barkod kutusuna al.

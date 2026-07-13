@@ -452,41 +452,50 @@ namespace MN_Barcode.WinForms
 
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
         {
-            // Eğer aktif sayfa SalesForm ise, barkodları o form kendisi işler.
-            // Biz burada sadece aktif sayfa SalesForm DEĞİLSE müdahale ediyoruz.
             bool isSalesFormActive = _contentPanel.Controls.Count > 0 && _contentPanel.Controls[0] is SalesForm;
+            SalesForm activeSalesForm = isSalesFormActive ? (SalesForm)_contentPanel.Controls[0] : null;
 
-            if (!isSalesFormActive)
+            // 1. Kısayol Tuşları (F2 - F6)
+            if (isSalesFormActive && activeSalesForm.ProcessShortcut(keyData))
             {
-                DateTime now = DateTime.Now;
-                // Tuşlar arası süre uzunsa (insan yazıyorsa) tamponu sıfırla
-                if ((now - _lastScanTime).TotalMilliseconds > 50)
-                {
-                    _globalScanBuffer = "";
-                }
-                _lastScanTime = now;
+                return true; // Kısayol işlendi, tuşu yut
+            }
 
-                if (keyData == Keys.Enter)
+            // 2. Barkod Okuyucu Yakalama (Hızlı giriş algılama)
+            DateTime now = DateTime.Now;
+            // Tuşlar arası süre uzunsa (insan yazıyorsa) tamponu sıfırla
+            if ((now - _lastScanTime).TotalMilliseconds > 50)
+            {
+                _globalScanBuffer = "";
+            }
+            _lastScanTime = now;
+
+            if (keyData == Keys.Enter)
+            {
+                // Tamponda yeterince karakter varsa bu bir barkod okuyucu işlemidir.
+                if (_globalScanBuffer.Length >= 3)
                 {
-                    // Tamponda yeterince karakter varsa bu bir barkod okuyucu işlemidir.
-                    if (_globalScanBuffer.Length >= 3)
-                    {
-                        // Barkod okundu ama satış sayfasında değiliz!
-                        // "Enter" tuşunu yutuyoruz ki başka butonları/olayları tetiklemesin.
-                        _globalScanBuffer = "";
-                        return true; 
-                    }
+                    string code = _globalScanBuffer;
                     _globalScanBuffer = "";
-                }
-                else
-                {
-                    char c = KeyToChar(keyData);
-                    if (c != '\0')
+
+                    if (isSalesFormActive)
                     {
-                        _globalScanBuffer += c;
-                        // Karakterlerin text alanlarına yazılmasına izin veriyoruz (örn: arama kutusu),
-                        // ancak Enter tuşuna basıldığında tetiklenmesini engelliyoruz.
+                        activeSalesForm.ProcessScannedBarcode(code);
                     }
+                    // Barkod okuyucu işlemi algılandı: Enter'ı her halükarda yutuyoruz
+                    // ki başka formlardayken istenmeyen butonlara basılmasın.
+                    return true; 
+                }
+                _globalScanBuffer = "";
+            }
+            else
+            {
+                char c = KeyToChar(keyData);
+                if (c != '\0')
+                {
+                    _globalScanBuffer += c;
+                    // Not: Karakterlerin arama vb. kutularına normal akışta yazılmasını
+                    // bozmamak için burada 'return true' DEMİYORUZ. Sadece tampona ekliyoruz.
                 }
             }
 
