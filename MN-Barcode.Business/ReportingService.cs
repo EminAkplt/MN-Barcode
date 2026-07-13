@@ -60,8 +60,8 @@ namespace MN_Barcode.Business
                 Date = date,
                 TotalRevenue = totalRev,
                 TotalSalesCount = sales.Count,
-                CashTotal = sales.Where(x => x.PaymentType == "Nakit").Sum(x => x.TotalAmount),
-                CardTotal = sales.Where(x => x.PaymentType == "Kredi Kartı").Sum(x => x.TotalAmount),
+                CashTotal = sales.Where(x => x.PaymentType == PaymentType.Nakit).Sum(x => x.TotalAmount),
+                CardTotal = sales.Where(x => x.PaymentType == PaymentType.KrediKarti).Sum(x => x.TotalAmount),
                 TotalProductsSold = (int)totalQty,
                 TotalExpense = expenses,
                 NetProfit = totalRev - expenses // Basit Net Kâr (Alış fiyatı hesaba katılmadı, sadece ciro - gider)
