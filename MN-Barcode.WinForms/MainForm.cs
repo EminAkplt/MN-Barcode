@@ -49,6 +49,10 @@ namespace MN_Barcode.WinForms
         // Aktif menü butonunu takip et (renk vurgulaması için)
         private Button _activeMenuButton;
 
+        // --- FORM CACHE (PERFORMANS) ---
+        // Sık kullanılan formları (SalesForm vb.) önbellekte tutuyoruz
+        private readonly Dictionary<string, Form> _formCache = new Dictionary<string, Form>();
+
         // ============================================================
         // 🏁 BAŞLANGIÇ
         // ============================================================
@@ -233,8 +237,8 @@ namespace MN_Barcode.WinForms
         // ============================================================
         private void BuildMenuStructure()
         {
-            _menuContainer.Controls.Add(CreateSingleMenuButton("📊  Ana Sayfa", (s, e) => ShowForm(new HomeDashboardForm())));
-            _menuContainer.Controls.Add(CreateSingleMenuButton("⚡  Hızlı Satış", (s, e) => ShowForm(new SalesForm())));
+            _menuContainer.Controls.Add(CreateSingleMenuButton("📊  Ana Sayfa", (s, e) => ShowFormCached("HomeDashboard", () => new HomeDashboardForm())));
+            _menuContainer.Controls.Add(CreateSingleMenuButton("⚡  Hızlı Satış", (s, e) => ShowFormCached("SalesForm", () => new SalesForm())));
             _menuContainer.Controls.Add(CreateAccordionGroup("💰  Satış Yönetimi", new string[] { "Satış Geçmişi", "İade İşlemleri" }));
             _menuContainer.Controls.Add(CreateAccordionGroup("📦  Stok Yönetimi", new string[] { "Ürün Yönetimi", "Stok Dashboard" }));
             _menuContainer.Controls.Add(CreateSingleMenuButton("📈  Raporlar", (s, e) => OpenReportsWithPassword()));
@@ -379,17 +383,38 @@ namespace MN_Barcode.WinForms
         // ============================================================
 
         /// <summary>
+        /// Cache destekli form gösterimi. Eğer form oluşturulmuşsa tekrar kullanır.
+        /// </summary>
+        private void ShowFormCached(string key, Func<Form> formCreator)
+        {
+            if (!_formCache.ContainsKey(key))
+            {
+                _formCache[key] = formCreator();
+            }
+            ShowForm(_formCache[key], isCached: true);
+        }
+
+        /// <summary>
         /// Bir formu içerik alanına gömer.
         /// Her geçişte eski formlar düzgün dispose edilir.
         /// </summary>
-        private void ShowForm(Form form)
+        private void ShowForm(Form form, bool isCached = false)
         {
             // Eski kontrolleri temizle ve dispose et
             for (int i = _contentPanel.Controls.Count - 1; i >= 0; i--)
             {
                 var ctrl = _contentPanel.Controls[i];
                 _contentPanel.Controls.RemoveAt(i);
-                ctrl.Dispose();
+                
+                // Eğer ekrandaki form önbellekteyse dispose etme (sadece sakla)
+                if (ctrl is Form oldForm && _formCache.ContainsValue(oldForm))
+                {
+                    oldForm.Hide();
+                }
+                else
+                {
+                    ctrl.Dispose();
+                }
             }
 
             // Formu göm ve göster
@@ -417,6 +442,65 @@ namespace MN_Barcode.WinForms
         {
             if (MessageBox.Show("Programı kapatmak istediğinize emin misiniz?", "Çıkış Onayı", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
                 Application.Exit();
+        }
+
+        // ============================================================
+        // 🚫 GLOBAL BARKOD ENGELLEME
+        // ============================================================
+        private DateTime _lastScanTime = DateTime.Now;
+        private string _globalScanBuffer = "";
+
+        protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+        {
+            // Eğer aktif sayfa SalesForm ise, barkodları o form kendisi işler.
+            // Biz burada sadece aktif sayfa SalesForm DEĞİLSE müdahale ediyoruz.
+            bool isSalesFormActive = _contentPanel.Controls.Count > 0 && _contentPanel.Controls[0] is SalesForm;
+
+            if (!isSalesFormActive)
+            {
+                DateTime now = DateTime.Now;
+                // Tuşlar arası süre uzunsa (insan yazıyorsa) tamponu sıfırla
+                if ((now - _lastScanTime).TotalMilliseconds > 50)
+                {
+                    _globalScanBuffer = "";
+                }
+                _lastScanTime = now;
+
+                if (keyData == Keys.Enter)
+                {
+                    // Tamponda yeterince karakter varsa bu bir barkod okuyucu işlemidir.
+                    if (_globalScanBuffer.Length >= 3)
+                    {
+                        // Barkod okundu ama satış sayfasında değiliz!
+                        // "Enter" tuşunu yutuyoruz ki başka butonları/olayları tetiklemesin.
+                        _globalScanBuffer = "";
+                        return true; 
+                    }
+                    _globalScanBuffer = "";
+                }
+                else
+                {
+                    char c = KeyToChar(keyData);
+                    if (c != '\0')
+                    {
+                        _globalScanBuffer += c;
+                        // Karakterlerin text alanlarına yazılmasına izin veriyoruz (örn: arama kutusu),
+                        // ancak Enter tuşuna basıldığında tetiklenmesini engelliyoruz.
+                    }
+                }
+            }
+
+            return base.ProcessCmdKey(ref msg, keyData);
+        }
+
+        private static char KeyToChar(Keys keyData)
+        {
+            Keys key = keyData & Keys.KeyCode;
+            if (key >= Keys.D0 && key <= Keys.D9) return (char)('0' + (key - Keys.D0));
+            if (key >= Keys.NumPad0 && key <= Keys.NumPad9) return (char)('0' + (key - Keys.NumPad0));
+            if (key >= Keys.A && key <= Keys.Z) return (char)('A' + (key - Keys.A));
+            if (key == Keys.OemMinus || key == Keys.Subtract) return '-';
+            return '\0';
         }
 
         // ============================================================
