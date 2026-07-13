@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Drawing;
 using System.Windows.Forms;
 using MN_Barcode.Business;
@@ -354,9 +354,12 @@ namespace MN_Barcode.WinForms
         {
             if (_isProductsTab)
             {
+                // ProductForm TopLevel=false gömülü bir form olduğundan
+                // ShowDialog'a TopLevel owner vermek gerekir; FindForm() MainForm'u döner.
+                var owner = this.FindForm();
                 using (var f = new ProductEditForm())
                 {
-                    if (f.ShowDialog() == DialogResult.OK)
+                    if (f.ShowDialog(owner) == DialogResult.OK)
                     {
                         LoadProducts();
                         LoadCategoryDropdown();
@@ -407,7 +410,7 @@ namespace MN_Barcode.WinForms
                     inputForm.AcceptButton = btnOk;
                     inputForm.CancelButton = btnCancel;
 
-                    if (inputForm.ShowDialog() == DialogResult.OK && !string.IsNullOrWhiteSpace(txt.Text))
+                    if (inputForm.ShowDialog(this.FindForm()) == DialogResult.OK && !string.IsNullOrWhiteSpace(txt.Text))
                     {
                         _categoryService.Add(new Category { Name = txt.Text.Trim() });
                         LoadCategories();
@@ -473,8 +476,9 @@ namespace MN_Barcode.WinForms
             if (_gridProducts.Columns[e.ColumnIndex].Name == "Edit")
             {
                 var p = _productService.GetById(id);
+                var owner = this.FindForm();
                 using (var f = new ProductEditForm(p))
-                    if (f.ShowDialog() == DialogResult.OK) { LoadProducts(); LoadCategoryDropdown(); }
+                    if (f.ShowDialog(owner) == DialogResult.OK) { LoadProducts(); LoadCategoryDropdown(); }
             }
             else if (_gridProducts.Columns[e.ColumnIndex].Name == "Del")
             {

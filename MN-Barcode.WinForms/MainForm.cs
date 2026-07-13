@@ -120,7 +120,14 @@ namespace MN_Barcode.WinForms
             btnMenu.Size = new Size(HeaderHeight, HeaderHeight); // Kare buton
             btnMenu.Dock = DockStyle.Left;   // Sola Yasla
             btnMenu.Cursor = Cursors.Hand;
+            btnMenu.TabStop = false; // Barkod okuyucu Enter'ı bu butonu tetiklemesin diye odak almayı engelle
             btnMenu.Click += (s, e) => _sidebarTimer.Start(); // Tıklayınca menüyü aç/kapa
+            // Barkod okuyucu klavye taklidi yaptığında Enter/Space bu butonu tetiklemesin
+            btnMenu.KeyDown += (s, e) =>
+            {
+                if (e.KeyCode == Keys.Enter || e.KeyCode == Keys.Space)
+                    e.Handled = true;
+            };
             header.Controls.Add(btnMenu);
 
             // --- HEADER SAĞ TARAFI (PENCERE KONTROLLERİ) ---
@@ -202,6 +209,7 @@ namespace MN_Barcode.WinForms
             btn.Font = new Font("Segoe UI", 14);
             btn.ForeColor = Color.Silver;
             btn.Cursor = Cursors.Hand;
+            btn.TabStop = false; // Barkod okuyucu Enter'ının bu butonu tetiklemesini engelle
             btn.Click += onClick;
             // Standart Hover Efekti
             btn.MouseEnter += (s, e) => { btn.BackColor = Color.FromArgb(40, 50, 70); btn.ForeColor = Color.White; };
@@ -321,6 +329,7 @@ namespace MN_Barcode.WinForms
             btn.Padding = new Padding(10, 0, 0, 0);
             btn.Cursor = Cursors.Hand;
             btn.Margin = new Padding(0, 0, 0, 2); // Alt Boşluk
+            btn.TabStop = false; // Barkod okuyucu Enter'ının bu butonu tetiklemesini engelle
             // Hover Efekti
             btn.MouseEnter += (s, e) => btn.BackColor = HoverColor;
             btn.MouseLeave += (s, e) => btn.BackColor = ThemeColor;
@@ -357,6 +366,7 @@ namespace MN_Barcode.WinForms
                 subBtn.Font = new Font("Segoe UI", 11); // Alt menü fontu
                 subBtn.TextAlign = ContentAlignment.MiddleLeft;
                 subBtn.Cursor = Cursors.Hand;
+                subBtn.TabStop = false; // Barkod okuyucu Enter'ının bu butonu tetiklemesini engelle
 
                 // >>> KRİTİK GÜNCELLEME BURASI <<<
                 // Hangi butona basıldıysa ilgili formu aç

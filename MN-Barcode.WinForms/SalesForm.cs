@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
@@ -165,8 +165,8 @@ namespace MN_Barcode.WinForms
             actionGrid.RowStyles.Add(new RowStyle(SizeType.Percent, 33.3F));
             actionGrid.Padding = new Padding(0, 15, 0, 0);
 
-            actionGrid.Controls.Add(CreateGridButton("NAKİT\n(F2)", Color.FromArgb(39, 174, 96), (s, e) => CompleteSale("Nakit")), 0, 0);
-            actionGrid.Controls.Add(CreateGridButton("KART\n(F3)", Color.FromArgb(41, 128, 185), (s, e) => CompleteSale("Kredi Kartı")), 1, 0);
+            actionGrid.Controls.Add(CreateGridButton("NAKİT\n(F2)", Color.FromArgb(39, 174, 96), (s, e) => CompleteSale(PaymentType.Nakit)), 0, 0);
+            actionGrid.Controls.Add(CreateGridButton("KART\n(F3)", Color.FromArgb(41, 128, 185), (s, e) => CompleteSale(PaymentType.KrediKarti)), 1, 0);
             actionGrid.Controls.Add(CreateGridButton("BEKLET\n(F4)", Color.FromArgb(149, 165, 166), (s, e) => SafeMessageBox("Fiş beklemeye alındı.", "Bilgi")), 0, 1);
             actionGrid.Controls.Add(CreateGridButton("İADE\n(F6)", Color.FromArgb(230, 126, 34), (s, e) => ToggleReturnMode()), 1, 1);
 
@@ -351,8 +351,8 @@ namespace MN_Barcode.WinForms
             // Fonksiyon tuşu kısayolları (odak neresi olursa olsun çalışır)
             switch (keyData)
             {
-                case Keys.F2: CompleteSale("Nakit"); return true;
-                case Keys.F3: CompleteSale("Kredi Kartı"); return true;
+                case Keys.F2: CompleteSale(PaymentType.Nakit); return true;
+                case Keys.F3: CompleteSale(PaymentType.KrediKarti); return true;
                 case Keys.F4: SafeMessageBox("Fiş beklemeye alındı.", "Bilgi"); return true;
                 case Keys.F5: ClearCart(); return true;
                 case Keys.F6: ToggleReturnMode(); return true;
@@ -429,19 +429,24 @@ namespace MN_Barcode.WinForms
             _lblTotal.Text = _grandTotal.ToString("C2");
         }
 
-        private void CompleteSale(string type)
+        private void CompleteSale(PaymentType paymentType)
         {
             if (_grandTotal == 0 && !_isReturnMode) return;
             try
             {
-                Sale newSale = new Sale { TransactionCode = DateTime.Now.ToString("yyyyMMddHHmmss"), PaymentType = type, TotalAmount = _grandTotal };
+                Sale newSale = new Sale
+                {
+                    TransactionCode = DateTime.Now.ToString("yyyyMMddHHmmss"),
+                    PaymentType     = _isReturnMode ? PaymentType.Iade : paymentType,
+                    SaleType        = _isReturnMode ? SaleType.Iade : SaleType.Satis,
+                    TotalAmount     = _grandTotal
+                };
                 _saleService.CompleteSale(newSale, _cartDetails);
                 SafeMessageBox($"İşlem Tamamlandı.\nTutar: {_grandTotal:C2}", "Bilgi");
                 ClearCart();
             }
             catch (Exception ex)
             {
-                // DETAYLI HATA GÖSTERİMİ
                 string err = ex.InnerException != null ? ex.InnerException.Message : ex.Message;
                 SafeMessageBox("Hata: " + err, "Hata", true);
             }

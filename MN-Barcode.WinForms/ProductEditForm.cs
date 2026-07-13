@@ -13,267 +13,365 @@ namespace MN_Barcode.WinForms
         private CategoryService _categoryService;
         private bool _isNew;
 
-        // UI
-        private TextBox txtName, txtBarcode, txtBuyPrice, txtSellPrice, txtStock;
-        private ComboBox cmbCategory;
+        private TextBox _txtBarcode;
+        private TextBox _txtName;
+        private ComboBox _cmbCategory;
+        private TextBox _txtBuyPrice;
+        private TextBox _txtSellPrice;
+        private TextBox _txtStock;
+        private ComboBox _cmbUnit;
 
-        // Renkler
-        private readonly Color BgColor = Color.FromArgb(30, 41, 59);
-        private readonly Color CardColor = Color.FromArgb(51, 65, 85);
-        private readonly Color AccentColor = Color.FromArgb(59, 130, 246);
-        private readonly Color SuccessColor = Color.FromArgb(34, 197, 94);
-        private readonly Color DangerColor = Color.FromArgb(239, 68, 68);
+        private static readonly Color BgColor      = Color.FromArgb(30, 41, 59);
+        private static readonly Color CardColor    = Color.FromArgb(51, 65, 85);
+        private static readonly Color InputBg      = Color.FromArgb(71, 85, 105);
+        private static readonly Color SuccessGreen = Color.FromArgb(34, 197, 94);
+        private static readonly Color DangerRed    = Color.FromArgb(239, 68, 68);
+        private static readonly Color TextMuted    = Color.FromArgb(148, 163, 184);
+        private static readonly Color TextWhite    = Color.FromArgb(226, 232, 240);
 
         public ProductEditForm(Product product = null)
         {
-            _productService = new ProductService();
+            _productService  = new ProductService();
             _categoryService = new CategoryService();
             _product = product ?? new Product();
-            _isNew = product == null || product.Id == 0;
+            _isNew   = product == null || product.Id == 0;
 
-            SetupForm();
-            LoadCategories();
-            if (!_isNew) LoadProductData();
+            BuildForm();
+            LoadCategoryDropdown();
+            if (!_isNew) FillFields();
+
+            this.Shown += (s, e) =>
+            {
+                _txtBarcode.Focus();
+                if (!string.IsNullOrEmpty(_txtBarcode.Text))
+                    _txtBarcode.SelectAll();
+            };
         }
 
-        private void SetupForm()
+        private void BuildForm()
         {
-            // Form Ayarları
-            this.Text = _isNew ? "Yeni Ürün Ekle" : "Ürün Düzenle";
-            this.Size = new Size(480, 580);
-            this.StartPosition = FormStartPosition.CenterParent;
+            this.Text            = _isNew ? "Yeni Ürün Ekle" : "Ürün Düzenle";
+            this.Size            = new Size(520, 600);
+            this.MinimumSize     = new Size(520, 600);
+            this.MaximumSize     = new Size(520, 600);
+            this.StartPosition   = FormStartPosition.CenterParent;
             this.FormBorderStyle = FormBorderStyle.None;
-            this.BackColor = BgColor;
+            this.BackColor       = BgColor;
 
-            // Başlık Bar
+            // ── BAŞLIK ──────────────────────────────────────────────────
             Panel titleBar = new Panel
             {
-                Dock = DockStyle.Top,
-                Height = 50,
+                Dock      = DockStyle.Top,
+                Height    = 52,
                 BackColor = CardColor
             };
-            this.Controls.Add(titleBar);
 
             Label lblTitle = new Label
             {
-                Text = _isNew ? "➕ Yeni Ürün Ekle" : "✏️ Ürün Düzenle",
-                Font = new Font("Segoe UI", 14, FontStyle.Bold),
+                Text      = _isNew ? "➕  Yeni Ürün Ekle" : "✏️  Ürün Düzenle",
+                Font      = new Font("Segoe UI", 14, FontStyle.Bold),
                 ForeColor = Color.White,
-                AutoSize = true,
-                Location = new Point(20, 12)
+                AutoSize  = true,
+                Location  = new Point(18, 13)
             };
             titleBar.Controls.Add(lblTitle);
 
-            // Kapatma Butonu
-            Button btnClose = new Button
+            Button btnX = new Button
             {
-                Text = "✕",
-                Size = new Size(40, 40),
-                Location = new Point(this.Width - 45, 5),
+                Text      = "✕",
+                Size      = new Size(42, 42),
+                Location  = new Point(this.Width - 47, 5),
+                Anchor    = AnchorStyles.Top | AnchorStyles.Right,
                 FlatStyle = FlatStyle.Flat,
-                ForeColor = Color.White,
-                Font = new Font("Segoe UI", 12),
-                Cursor = Cursors.Hand
+                ForeColor = Color.Silver,
+                Font      = new Font("Segoe UI", 12),
+                Cursor    = Cursors.Hand,
+                TabStop   = false
             };
-            btnClose.FlatAppearance.BorderSize = 0;
-            btnClose.Click += (s, e) => this.Close();
-            btnClose.MouseEnter += (s, e) => btnClose.BackColor = DangerColor;
-            btnClose.MouseLeave += (s, e) => btnClose.BackColor = CardColor;
-            titleBar.Controls.Add(btnClose);
+            btnX.FlatAppearance.BorderSize           = 0;
+            btnX.FlatAppearance.MouseOverBackColor   = DangerRed;
+            btnX.Click      += (s, e) => { this.DialogResult = DialogResult.Cancel; this.Close(); };
+            btnX.MouseEnter += (s, e) => btnX.ForeColor = Color.White;
+            btnX.MouseLeave += (s, e) => btnX.ForeColor = Color.Silver;
+            titleBar.Controls.Add(btnX);
 
-            // Form İçeriği
+            this.Controls.Add(titleBar);
+
+            // ── İÇERİK (Padding YOK — absolute kontrollerle çakışır) ──
             Panel content = new Panel
             {
-                Dock = DockStyle.Fill,
-                Padding = new Padding(30, 20, 30, 20),
-                BackColor = BgColor
+                Location  = new Point(0, 52),
+                Size      = new Size(520, 548),
+                BackColor = BgColor,
+                Anchor    = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom
             };
             this.Controls.Add(content);
 
-            int y = 10;
-            int labelWidth = 110;
-            int inputWidth = 280;
+            // Sabit kolon ölçüleri
+            int lx = 20;   // Label X
+            int lw = 120;  // Label genişliği
+            int ix = 150;  // Input X
+            int iw = 320;  // Input genişliği
+            int rh = 60;   // Satır yüksekliği
+            int y  = 15;   // İlk satır Y — panel sıfırından güvenli aralıkta
 
-            // BARKOD (ÖNCELİKLİ)
-            content.Controls.Add(CreateLabel("Barkod:", y));
-            txtBarcode = CreateTextBox(y, labelWidth, inputWidth);
-            content.Controls.Add(txtBarcode);
-            y += 55;
-
-            // ÜRÜN ADI
-            content.Controls.Add(CreateLabel("Ürün Adı:", y));
-            txtName = CreateTextBox(y, labelWidth, inputWidth);
-            content.Controls.Add(txtName);
-            y += 55;
-
-            // KATEGORİ
-            content.Controls.Add(CreateLabel("Kategori:", y));
-            cmbCategory = new ComboBox
+            // ── 1. BARKOD ─────────────────────────────────────────────
+            content.Controls.Add(RowLabel("Barkod:", lx, y, lw));
+            _txtBarcode = RowInput(ix, y, iw);
+            _txtBarcode.PlaceholderText = "Barkod okutun veya yazın";
+            _txtBarcode.KeyDown += (s, e) =>   // Enter → sonraki alana geç
             {
-                Location = new Point(labelWidth, y),
-                Width = inputWidth,
-                Height = 35,
-                Font = new Font("Segoe UI", 12),
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                BackColor = CardColor,
-                ForeColor = Color.White
+                if (e.KeyCode == Keys.Enter)
+                { e.Handled = true; e.SuppressKeyPress = true; _txtName.Focus(); }
             };
-            content.Controls.Add(cmbCategory);
-            y += 55;
+            content.Controls.Add(_txtBarcode);
+            y += rh;
 
-            // ALIŞ FİYATI
-            content.Controls.Add(CreateLabel("Alış Fiyatı:", y));
-            txtBuyPrice = CreateTextBox(y, labelWidth, inputWidth);
-            content.Controls.Add(txtBuyPrice);
-            y += 55;
+            // ── 2. ÜRÜN ADI ───────────────────────────────────────────
+            content.Controls.Add(RowLabel("Ürün Adı: *", lx, y, lw));
+            _txtName = RowInput(ix, y, iw);
+            _txtName.PlaceholderText = "Ürün adını yazın";
+            _txtName.KeyDown += BlockEnter;
+            content.Controls.Add(_txtName);
+            y += rh;
 
-            // SATIŞ FİYATI
-            content.Controls.Add(CreateLabel("Satış Fiyatı:", y));
-            txtSellPrice = CreateTextBox(y, labelWidth, inputWidth);
-            content.Controls.Add(txtSellPrice);
-            y += 55;
+            // ── 3. KATEGORİ ───────────────────────────────────────────
+            content.Controls.Add(RowLabel("Kategori:", lx, y, lw));
+            _cmbCategory = new ComboBox
+            {
+                Location      = new Point(ix, y + 4),
+                Size          = new Size(iw, 36),
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Font          = new Font("Segoe UI", 12),
+                BackColor     = InputBg,
+                ForeColor     = TextWhite,
+                FlatStyle     = FlatStyle.Flat
+            };
+            content.Controls.Add(_cmbCategory);
+            y += rh;
 
-            // STOK
-            content.Controls.Add(CreateLabel("Stok Adedi:", y));
-            txtStock = CreateTextBox(y, labelWidth, inputWidth);
-            content.Controls.Add(txtStock);
-            y += 70;
+            // ── 4. BİRİM ──────────────────────────────────────────────
+            content.Controls.Add(RowLabel("Birim:", lx, y, lw));
+            _cmbUnit = new ComboBox
+            {
+                Location      = new Point(ix, y + 4),
+                Size          = new Size(150, 36),
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Font          = new Font("Segoe UI", 12),
+                BackColor     = InputBg,
+                ForeColor     = TextWhite,
+                FlatStyle     = FlatStyle.Flat
+            };
+            _cmbUnit.Items.AddRange(new object[] { "Adet", "Kg", "Lt", "Paket", "Kutu", "Metre" });
+            _cmbUnit.SelectedIndex = 0;
+            content.Controls.Add(_cmbUnit);
+            y += rh;
 
-            // KAYDET BUTONU
+            // ── 5. ALIŞ FİYATI ────────────────────────────────────────
+            content.Controls.Add(RowLabel("Alış Fiyatı:", lx, y, lw));
+            _txtBuyPrice = RowInput(ix, y, 180);
+            _txtBuyPrice.PlaceholderText = "0.00";
+            _txtBuyPrice.KeyDown += BlockEnter;
+            content.Controls.Add(_txtBuyPrice);
+            content.Controls.Add(new Label
+            {
+                Text      = "₺",
+                Location  = new Point(ix + 188, y + 9),
+                AutoSize  = true,
+                Font      = new Font("Segoe UI", 13, FontStyle.Bold),
+                ForeColor = TextMuted
+            });
+            y += rh;
+
+            // ── 6. SATIŞ FİYATI ───────────────────────────────────────
+            content.Controls.Add(RowLabel("Satış Fiyatı: *", lx, y, lw));
+            _txtSellPrice = RowInput(ix, y, 180);
+            _txtSellPrice.PlaceholderText = "0.00";
+            _txtSellPrice.KeyDown += BlockEnter;
+            content.Controls.Add(_txtSellPrice);
+            content.Controls.Add(new Label
+            {
+                Text      = "₺",
+                Location  = new Point(ix + 188, y + 9),
+                AutoSize  = true,
+                Font      = new Font("Segoe UI", 13, FontStyle.Bold),
+                ForeColor = TextMuted
+            });
+            y += rh;
+
+            // ── 7. STOK ───────────────────────────────────────────────
+            content.Controls.Add(RowLabel("Stok Adedi:", lx, y, lw));
+            _txtStock = RowInput(ix, y, 180);
+            _txtStock.PlaceholderText = "0";
+            _txtStock.KeyDown += BlockEnter;
+            content.Controls.Add(_txtStock);
+            y += rh + 5;
+
+            // ── NOT ───────────────────────────────────────────────────
+            content.Controls.Add(new Label
+            {
+                Text      = "* Zorunlu alan",
+                Location  = new Point(lx, y),
+                AutoSize  = true,
+                Font      = new Font("Segoe UI", 10, FontStyle.Italic),
+                ForeColor = TextMuted
+            });
+            y += 30;
+
+            // ── KAYDET ────────────────────────────────────────────────
             Button btnSave = new Button
             {
-                Text = "💾  KAYDET",
-                Location = new Point(labelWidth, y),
-                Size = new Size(140, 45),
-                BackColor = SuccessColor,
+                Text      = "💾  KAYDET",
+                Location  = new Point(ix, y),
+                Size      = new Size(155, 46),
+                BackColor = SuccessGreen,
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
-                Font = new Font("Segoe UI", 12, FontStyle.Bold),
-                Cursor = Cursors.Hand
+                Font      = new Font("Segoe UI", 13, FontStyle.Bold),
+                Cursor    = Cursors.Hand,
+                TabStop   = false
             };
             btnSave.FlatAppearance.BorderSize = 0;
-            btnSave.Click += BtnSave_Click;
+            btnSave.Click      += BtnSave_Click;
             btnSave.MouseEnter += (s, e) => btnSave.BackColor = Color.FromArgb(22, 163, 74);
-            btnSave.MouseLeave += (s, e) => btnSave.BackColor = SuccessColor;
+            btnSave.MouseLeave += (s, e) => btnSave.BackColor = SuccessGreen;
             content.Controls.Add(btnSave);
 
-            // İPTAL BUTONU
             Button btnCancel = new Button
             {
-                Text = "İPTAL",
-                Location = new Point(labelWidth + 155, y),
-                Size = new Size(125, 45),
+                Text      = "İPTAL",
+                Location  = new Point(ix + 165, y),
+                Size      = new Size(120, 46),
                 BackColor = CardColor,
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
-                Font = new Font("Segoe UI", 12, FontStyle.Bold),
-                Cursor = Cursors.Hand
+                Font      = new Font("Segoe UI", 13, FontStyle.Bold),
+                Cursor    = Cursors.Hand,
+                TabStop   = false
             };
             btnCancel.FlatAppearance.BorderSize = 0;
-            btnCancel.Click += (s, e) => this.Close();
+            btnCancel.Click      += (s, e) => { this.DialogResult = DialogResult.Cancel; this.Close(); };
+            btnCancel.MouseEnter += (s, e) => btnCancel.BackColor = Color.FromArgb(71, 85, 105);
+            btnCancel.MouseLeave += (s, e) => btnCancel.BackColor = CardColor;
             content.Controls.Add(btnCancel);
         }
 
-        private Label CreateLabel(string text, int y)
+        // ─────────────────────────────────────────────────────────────────
+        // YARDIMCI METODLAR
+        // ─────────────────────────────────────────────────────────────────
+        private Label RowLabel(string text, int x, int y, int w)
         {
             return new Label
             {
-                Text = text,
-                Location = new Point(0, y + 8),
-                AutoSize = true,
-                Font = new Font("Segoe UI", 11),
-                ForeColor = Color.FromArgb(148, 163, 184)
+                Text      = text,
+                Location  = new Point(x, y + 11),
+                Size      = new Size(w, 26),
+                Font      = new Font("Segoe UI", 11),
+                ForeColor = TextMuted,
+                TextAlign = ContentAlignment.MiddleLeft
             };
         }
 
-        private TextBox CreateTextBox(int y, int x, int width)
+        private TextBox RowInput(int x, int y, int w)
         {
-            TextBox txt = new TextBox
+            return new TextBox
             {
-                Location = new Point(x, y),
-                Width = width,
-                Height = 40,
-                Font = new Font("Segoe UI", 13),
-                BackColor = CardColor,
-                ForeColor = Color.White,
+                Location    = new Point(x, y + 4),
+                Size        = new Size(w, 36),
+                Font        = new Font("Segoe UI", 13),
+                BackColor   = InputBg,
+                ForeColor   = TextWhite,
                 BorderStyle = BorderStyle.FixedSingle
             };
-            return txt;
         }
 
-        private void LoadCategories()
+        private static void BlockEnter(object s, KeyEventArgs e)
         {
-            cmbCategory.Items.Add("Kategori Seçin");
-            var categories = _categoryService.GetCategories();
-            foreach (var cat in categories)
-            {
-                cmbCategory.Items.Add(cat);
-            }
-            cmbCategory.SelectedIndex = 0;
-            cmbCategory.DisplayMember = "Name";
+            if (e.KeyCode == Keys.Enter)
+            { e.Handled = true; e.SuppressKeyPress = true; }
         }
 
-        private void LoadProductData()
+        // ─────────────────────────────────────────────────────────────────
+        // VERİ YÜKLEMELERİ
+        // ─────────────────────────────────────────────────────────────────
+        private void LoadCategoryDropdown()
         {
-            txtName.Text = _product.Name;
-            txtBarcode.Text = _product.Barcode;
-            txtBuyPrice.Text = _product.BuyingPrice.ToString("0.00");
-            txtSellPrice.Text = _product.SellingPrice.ToString("0.00");
-            txtStock.Text = _product.StockQuantity.ToString();
+            _cmbCategory.Items.Clear();
+            _cmbCategory.Items.Add("-- Kategori Seçin --");
+            foreach (var cat in _categoryService.GetCategories())
+                _cmbCategory.Items.Add(cat);
+            _cmbCategory.SelectedIndex = 0;
+            _cmbCategory.DisplayMember = "Name";
+        }
 
-            // Kategori seç
-            for (int i = 1; i < cmbCategory.Items.Count; i++)
+        private void FillFields()
+        {
+            _txtBarcode.Text   = _product.Barcode ?? "";
+            _txtName.Text      = _product.Name    ?? "";
+            _txtBuyPrice.Text  = _product.BuyingPrice.ToString("0.00");
+            _txtSellPrice.Text = _product.SellingPrice.ToString("0.00");
+            _txtStock.Text     = _product.StockQuantity.ToString("0.##");
+
+            int unitIdx = _cmbUnit.Items.IndexOf(_product.Unit ?? "Adet");
+            _cmbUnit.SelectedIndex = unitIdx >= 0 ? unitIdx : 0;
+
+            for (int i = 1; i < _cmbCategory.Items.Count; i++)
             {
-                if (cmbCategory.Items[i] is Category cat && cat.Id == _product.CategoryId)
-                {
-                    cmbCategory.SelectedIndex = i;
-                    break;
-                }
+                if (_cmbCategory.Items[i] is Category cat && cat.Id == _product.CategoryId)
+                { _cmbCategory.SelectedIndex = i; break; }
             }
         }
 
+        // ─────────────────────────────────────────────────────────────────
+        // KAYDET
+        // ─────────────────────────────────────────────────────────────────
         private void BtnSave_Click(object sender, EventArgs e)
         {
-            // Validasyon - en az barkod veya ürün adı olmalı
-            if (string.IsNullOrWhiteSpace(txtName.Text) && string.IsNullOrWhiteSpace(txtBarcode.Text))
+            if (string.IsNullOrWhiteSpace(_txtName.Text))
             {
-                MessageBox.Show("Barkod veya ürün adı girilmelidir!", "Uyarı", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("Ürün adı zorunludur!", "Uyarı", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                _txtName.Focus();
                 return;
             }
 
-            if (!decimal.TryParse(txtSellPrice.Text.Replace(",", "."), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out decimal sellPrice))
+            if (!decimal.TryParse(
+                    _txtSellPrice.Text.Replace(",", "."),
+                    System.Globalization.NumberStyles.Any,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    out decimal sellPrice) || sellPrice < 0)
             {
-                MessageBox.Show("Geçerli bir satış fiyatı girin!", "Uyarı", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("Geçerli bir satış fiyatı giriniz!", "Uyarı", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                _txtSellPrice.Focus();
                 return;
             }
 
-            decimal.TryParse(txtBuyPrice.Text.Replace(",", "."), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out decimal buyPrice);
-            double.TryParse(txtStock.Text.Replace(",", "."), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double stock);
+            decimal.TryParse(_txtBuyPrice.Text.Replace(",", "."),
+                System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture, out decimal buyPrice);
 
-            // Ürünü Güncelle
-            // Eğer isim boşsa barkodu kullan
-            string productName = txtName.Text.Trim();
-            if (string.IsNullOrWhiteSpace(productName))
-            {
-                productName = txtBarcode.Text.Trim();
-            }
-            
-            _product.Name = productName;
-            _product.Barcode = txtBarcode.Text.Trim();
-            _product.BuyingPrice = buyPrice;
-            _product.SellingPrice = sellPrice;
+            double.TryParse(_txtStock.Text.Replace(",", "."),
+                System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture, out double stock);
+
+            _product.Name          = _txtName.Text.Trim();
+            _product.Barcode       = string.IsNullOrWhiteSpace(_txtBarcode.Text) ? null : _txtBarcode.Text.Trim();
+            _product.BuyingPrice   = buyPrice;
+            _product.SellingPrice  = sellPrice;
             _product.StockQuantity = stock;
+            _product.Unit          = _cmbUnit.SelectedItem?.ToString() ?? "Adet";
+            _product.CategoryId    = (_cmbCategory.SelectedIndex > 0 && _cmbCategory.SelectedItem is Category c) ? c.Id : (int?)null;
 
-            if (cmbCategory.SelectedIndex > 0 && cmbCategory.SelectedItem is Category selectedCat)
+            try
             {
-                _product.CategoryId = selectedCat.Id;
+                _productService.Save(_product);
+                this.DialogResult = DialogResult.OK;
+                this.Close();
             }
-
-            // Kaydet
-            _productService.Save(_product);
-
-            this.DialogResult = DialogResult.OK;
-            this.Close();
+            catch (Exception ex)
+            {
+                MessageBox.Show("Kayıt hatası:\n" + (ex.InnerException?.Message ?? ex.Message),
+                    "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
     }
 }
