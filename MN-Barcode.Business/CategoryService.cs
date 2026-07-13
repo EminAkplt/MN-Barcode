@@ -1,5 +1,6 @@
 using MN_Barcode.DataAccess;
 using MN_Barcode.Entities;
+using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -65,6 +66,21 @@ namespace MN_Barcode.Business
                 existing.Name = category.Name;
                 context.SaveChanges();
             }
+        }
+
+        /// <summary>
+        /// Kategorileri ürün sayısıyla birlikte getirir (DB'de hesaplanır).
+        /// ProductForm kategori listesinde kullanılır — tüm ürünleri belleğe çekmez.
+        /// </summary>
+        public List<(Category Category, int ProductCount)> GetCategoriesWithCount()
+        {
+            using var context = new BarcodeContext();
+            return context.Categories
+                .Select(c => new { Cat = c, Count = context.Products.Count(p => p.CategoryId == c.Id) })
+                .OrderBy(x => x.Cat.Name)
+                .AsEnumerable()
+                .Select(x => (x.Cat, x.Count))
+                .ToList();
         }
     }
 }

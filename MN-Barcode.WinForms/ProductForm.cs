@@ -458,13 +458,11 @@ namespace MN_Barcode.WinForms
         private void LoadCategories()
         {
             _gridCategories.Rows.Clear();
-            var cats = _categoryService.GetCategories();
-            var prods = _productService.GetProducts();
+            var catsWithCount = _categoryService.GetCategoriesWithCount();
 
-            foreach (var c in cats)
+            foreach (var item in catsWithCount)
             {
-                int cnt = prods.Count(p => p.CategoryId == c.Id);
-                _gridCategories.Rows.Add(c.Id, c.Name, $"{cnt} ürün");
+                _gridCategories.Rows.Add(item.Category.Id, item.Category.Name, $"{item.ProductCount} ürün");
             }
         }
 

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Drawing; // Renkler ve Çizim için şart
 using System.Windows.Forms;
 using MN_Barcode.Business; // Servisler
@@ -74,7 +74,7 @@ namespace MN_Barcode.WinForms
             txtUsername.Location = new Point(350, 145);
             txtUsername.Size = new Size(300, 30);
             txtUsername.Font = new Font("Segoe UI", 12);
-            txtUsername.Text = "admin"; // Test kolaylığı olsun diye dolu gelsin
+            txtUsername.Text = "";
             this.Controls.Add(txtUsername);
 
             // Şifre
@@ -90,7 +90,7 @@ namespace MN_Barcode.WinForms
             txtPassword.Size = new Size(300, 30);
             txtPassword.Font = new Font("Segoe UI", 12);
             txtPassword.PasswordChar = '●'; // Şifre gizlensin
-            txtPassword.Text = "1234";
+            txtPassword.Text = "";
             this.Controls.Add(txtPassword);
 
             // Giriş Butonu

@@ -40,6 +40,7 @@ namespace MN_Barcode.Business
         // 3. BARKOD İLE GETİR (Satış ekranı için)
         public Product GetByBarcode(string barcode)
         {
+            if (string.IsNullOrWhiteSpace(barcode)) return null;
             using var context = new BarcodeContext();
             // AsNoTracking: Sadece okuma; takip maliyeti olmadan hızlı sonuç.
             return context.Products.AsNoTracking().FirstOrDefault(x => x.Barcode == barcode);

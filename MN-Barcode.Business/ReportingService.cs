@@ -34,10 +34,17 @@ namespace MN_Barcode.Business
             DateTime gunBasi = date.Date;
             DateTime ertesiGun = gunBasi.AddDays(1);
 
-            // 1. Satışlar — filtre veritabanında uygulanır, sadece o günün satışları gelir.
+            // 1. Satışlar (sadece SaleType.Satis — iadeler ayrıca hesaplanır).
             var sales = context.Sales
-                .Where(x => x.CreatedDate >= gunBasi && x.CreatedDate < ertesiGun && x.TotalAmount > 0)
+                .Where(x => x.CreatedDate >= gunBasi && x.CreatedDate < ertesiGun
+                         && x.SaleType == SaleType.Satis)
                 .ToList();
+
+            // 1b. İadeler — net ciro için düşülecek.
+            decimal returnTotal = context.Sales
+                .Where(x => x.CreatedDate >= gunBasi && x.CreatedDate < ertesiGun
+                         && x.SaleType == SaleType.Iade)
+                .Sum(x => (decimal?)x.TotalAmount) ?? 0m;
 
             // 2. Giderler — toplamı doğrudan veritabanında hesaplanır.
             var expenses = context.Expenses
@@ -64,7 +71,8 @@ namespace MN_Barcode.Business
                 CardTotal = sales.Where(x => x.PaymentType == PaymentType.KrediKarti).Sum(x => x.TotalAmount),
                 TotalProductsSold = (int)totalQty,
                 TotalExpense = expenses,
-                NetProfit = totalRev - expenses // Basit Net Kâr (Alış fiyatı hesaba katılmadı, sadece ciro - gider)
+                // Net Kâr = Satış cirosu + İade tutarı (negatif) − Giderler
+                NetProfit = totalRev + returnTotal - expenses
             };
         }
 
@@ -78,7 +86,8 @@ namespace MN_Barcode.Business
             DateTime ertesiGun = gunBasi.AddDays(1);
 
             var sales = context.Sales
-                .Where(x => x.CreatedDate >= gunBasi && x.CreatedDate < ertesiGun && x.TotalAmount > 0)
+                .Where(x => x.CreatedDate >= gunBasi && x.CreatedDate < ertesiGun
+                         && x.SaleType == SaleType.Satis)
                 .Select(x => x.Id)
                 .ToList();
 

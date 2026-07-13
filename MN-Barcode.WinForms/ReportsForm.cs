@@ -2,8 +2,10 @@ using System;
 using System.Drawing;
 using System.Windows.Forms;
 using MN_Barcode.Business;
+using MN_Barcode.Entities;
 using System.IO;
 using System.Text;
+using System.Linq;
 
 namespace MN_Barcode.WinForms
 {
@@ -34,10 +36,12 @@ namespace MN_Barcode.WinForms
             header.Controls.Add(title);
 
             // Tarih Seçici
-            Label lblDate = new Label { Text = "Tarih Seçimi:", Location = new Point(header.Width - 350, 15), AutoSize = true, Font = new Font("Segoe UI", 11) };
+            Label lblDate = new Label { Text = "Tarih:", AutoSize = true, Font = new Font("Segoe UI", 11), ForeColor = Color.FromArgb(45, 55, 72),
+                Anchor = AnchorStyles.Top | AnchorStyles.Right, Location = new Point(header.Width - 220, 15) };
             header.Controls.Add(lblDate);
             
-            _dtPicker = new DateTimePicker { Location = new Point(header.Width - 250, 12), Width = 150, Format = DateTimePickerFormat.Short, Font = new Font("Segoe UI", 11) };
+            _dtPicker = new DateTimePicker { Width = 150, Format = DateTimePickerFormat.Short, Font = new Font("Segoe UI", 11),
+                Anchor = AnchorStyles.Top | AnchorStyles.Right, Location = new Point(header.Width - 165, 12) };
             header.Controls.Add(_dtPicker);
 
             // CARD CONTAINER (FlowLayout ile responsive gibi davransın)

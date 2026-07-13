@@ -171,11 +171,23 @@ namespace MN_Barcode.Business
             using var context = new BarcodeContext();
             DateTime bugun = DateTime.Today;
             DateTime yarin = bugun.AddDays(1);
-            return context.Sales
+
+            // Satış cirosu
+            decimal satis = context.Sales
                 .Where(x => x.CreatedDate >= bugun
                          && x.CreatedDate < yarin
                          && x.SaleType == SaleType.Satis)
                 .Sum(x => (decimal?)x.TotalAmount) ?? 0m;
+
+            // İade tutarı (negatif değer)
+            decimal iade = context.Sales
+                .Where(x => x.CreatedDate >= bugun
+                         && x.CreatedDate < yarin
+                         && x.SaleType == SaleType.Iade)
+                .Sum(x => (decimal?)x.TotalAmount) ?? 0m;
+
+            // Net ciro = Satışlar + İadeler (iade negatif olduğu için toplama)
+            return satis + iade;
         }
 
         // BUGÜNKÜ SATIŞ SAYISI
@@ -195,10 +207,18 @@ namespace MN_Barcode.Business
         {
             using var context = new BarcodeContext();
             DateTime ayinIlkGunu = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
-            return context.Sales
+
+            decimal satis = context.Sales
                 .Where(x => x.CreatedDate >= ayinIlkGunu
                          && x.SaleType == SaleType.Satis)
                 .Sum(x => (decimal?)x.TotalAmount) ?? 0m;
+
+            decimal iade = context.Sales
+                .Where(x => x.CreatedDate >= ayinIlkGunu
+                         && x.SaleType == SaleType.Iade)
+                .Sum(x => (decimal?)x.TotalAmount) ?? 0m;
+
+            return satis + iade;
         }
 
         // TARİH ARALIĞINA GÖRE GÜNLÜK SATIŞLAR (Grafik için)
@@ -208,11 +228,14 @@ namespace MN_Barcode.Business
             DateTime baslangic  = startDate.Date;
             DateTime bitisHaric = endDate.Date.AddDays(1);
 
-            return context.Sales
+            // Satışlar ve iadeler dahil — net günlük ciro hesaplanacak.
+            var allSales = context.Sales
                 .Where(x => x.CreatedDate >= baslangic
                          && x.CreatedDate < bitisHaric
-                         && x.SaleType == SaleType.Satis)
-                .ToList()
+                         && (x.SaleType == SaleType.Satis || x.SaleType == SaleType.Iade))
+                .ToList();
+
+            return allSales
                 .GroupBy(x => x.CreatedDate!.Value.Date)
                 .Select(g => new DailySalesData
                 {

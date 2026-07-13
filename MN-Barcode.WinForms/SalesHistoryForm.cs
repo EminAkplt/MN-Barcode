@@ -2,6 +2,7 @@ using System;
 using System.Drawing;
 using System.Windows.Forms;
 using MN_Barcode.Business;
+using MN_Barcode.Entities;
 using System.Linq;
 
 namespace MN_Barcode.WinForms
@@ -130,7 +131,14 @@ namespace MN_Barcode.WinForms
             var sales = _saleService.GetSalesHistory(start, end);
             foreach (var s in sales)
             {
-                _gridSales.Rows.Add(s.Id, s.CreatedDate?.ToString("dd.MM.yyyy HH:mm"), s.TransactionCode, s.PaymentType, s.TotalAmount);
+                string paymentText = s.PaymentType switch
+                {
+                    PaymentType.Nakit => "Nakit",
+                    PaymentType.KrediKarti => "Kredi Kartı",
+                    PaymentType.Iade => "İade",
+                    _ => s.PaymentType.ToString()
+                };
+                _gridSales.Rows.Add(s.Id, s.CreatedDate?.ToString("dd.MM.yyyy HH:mm"), s.TransactionCode, paymentText, s.TotalAmount);
             }
 
             // Toplam Ciro
