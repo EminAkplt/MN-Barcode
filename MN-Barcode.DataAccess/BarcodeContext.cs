@@ -1,9 +1,8 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using MN_Barcode.Entities;
 using System;
 using System.IO;
-
 
 namespace MN_Barcode.DataAccess
 {
@@ -28,12 +27,42 @@ namespace MN_Barcode.DataAccess
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
-            // Bağlantı cümlesini önce appsettings.json'dan okumayı dene.
-            // Böylece farklı bilgisayar/sunucuda kodu değiştirmeden sadece
-            // appsettings.json düzenlenerek veritabanı adresi değiştirilebilir.
             string baglanti = BaglantiCumlesiniOku() ?? VarsayilanBaglanti;
-
             optionsBuilder.UseSqlServer(baglanti);
+        }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            base.OnModelCreating(modelBuilder);
+
+            // ──────────────────────────────────────────────────────────────────
+            // ENUM → STRING dönüşümleri
+            // Veritabanında sütun tipi değişmez (varchar kalır), enum adı string
+            // olarak saklanır. Böylece enum'a geçiş mevcut veriyi bozmaz.
+            // ──────────────────────────────────────────────────────────────────
+
+            // Sale.PaymentType: "Nakit" / "KrediKarti" / "Iade"
+            modelBuilder.Entity<Sale>()
+                .Property(s => s.PaymentType)
+                .HasConversion<string>()
+                .HasMaxLength(20);
+
+            // Sale.SaleType: "Satis" / "Iade"
+            modelBuilder.Entity<Sale>()
+                .Property(s => s.SaleType)
+                .HasConversion<string>()
+                .HasMaxLength(10);
+
+            // AppUser.Role: "Admin" / "Kasiyer" / "Viewer"
+            modelBuilder.Entity<AppUser>()
+                .Property(u => u.Role)
+                .HasConversion<string>()
+                .HasMaxLength(20);
+
+            // ──────────────────────────────────────────────────────────────────
+            // Mevcut Sale kayıtlarında PaymentType kolonu string değer içerebilir
+            // ("Nakit", "Kredi Kartı" gibi). HasConversion bunları otomatik map eder.
+            // ──────────────────────────────────────────────────────────────────
         }
 
         /// <summary>
@@ -46,9 +75,7 @@ namespace MN_Barcode.DataAccess
             try
             {
                 var config = new ConfigurationBuilder()
-                    // Çalışan exe'nin bulunduğu klasörü temel al (çalışma dizininden bağımsız).
                     .SetBasePath(AppContext.BaseDirectory)
-                    // optional: true -> dosya yoksa hata verme, sadece geç.
                     .AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
                     .Build();
 
@@ -56,7 +83,6 @@ namespace MN_Barcode.DataAccess
             }
             catch
             {
-                // Herhangi bir okuma hatasında uygulamayı kırma, varsayılana düş.
                 return null;
             }
         }
