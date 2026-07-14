@@ -321,8 +321,23 @@ namespace MN_Barcode.WinForms
             }
             else
             {
-                SafeMessageBox("Ürün Bulunamadı!\nBarkod: " + code, "Hata", true);
-                _txtBarcode.SelectAll();
+                // Ürün bulunamadı, hızlı ekleme formunu aç
+                var newProduct = new Product { Barcode = code };
+                var addForm = new ProductEditForm(newProduct);
+                if (addForm.ShowDialog() == DialogResult.OK)
+                {
+                    // Eklendikten sonra sepete at
+                    var savedProduct = _productService.GetByBarcode(code);
+                    if (savedProduct != null)
+                    {
+                        AddToCart(savedProduct);
+                        _txtBarcode.Clear();
+                    }
+                }
+                else
+                {
+                    _txtBarcode.SelectAll();
+                }
             }
             _txtBarcode.Focus(); // İşlem sonrası odağı tekrar barkod kutusuna al
         }
