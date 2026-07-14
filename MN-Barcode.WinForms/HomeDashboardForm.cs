@@ -10,211 +10,243 @@ using MN_Barcode.Entities;
 namespace MN_Barcode.WinForms
 {
     /// <summary>
-    /// ANA SAYFA (Dashboard).
-    ///
-    /// Tasarım yaklaşımı: SADE ve abartısız. Üç tane net özet kartı (KPI),
-    /// tek bir satış grafiği ve kritik stok listesi. Emoji kalabalığı ve
-    /// döviz kuru widget'ı (her açılışta internete gidip ekranı bekletiyordu)
-    /// bilinçli olarak kaldırıldı. Tüm renk/font/boşluk değerleri Theme'den gelir.
+    /// ANA SAYFA (Dashboard) — Koyu tema, KPI kartları, satış grafiği, kritik stok.
     /// </summary>
     public class HomeDashboardForm : Form
     {
         private readonly ProductService _productService;
-        private readonly SaleService _saleService;
+        private readonly SaleService    _saleService;
 
-        // Tarih aralığı (grafik için)
         private DateTimePicker _dtpStart;
         private DateTimePicker _dtpEnd;
 
-        // KPI rakamları
         private Label _lblTodayCiro;
         private Label _lblMonthlyCiro;
         private Label _lblTodayCount;
 
-        // Grafik ve liste
-        private Panel _chartPanel;
+        private Panel              _chartPanel;
         private List<DailySalesData> _chartData = new List<DailySalesData>();
-        private DataGridView _gridLowStock;
+        private DataGridView       _gridLowStock;
 
         public HomeDashboardForm()
         {
             _productService = new ProductService();
-            _saleService = new SaleService();
+            _saleService    = new SaleService();
             this.DoubleBuffered = true;
             InitUI();
-            // Veriyi ekran gösterildikten sonra yükle (arayüz takılmasın).
             this.Shown += (s, e) => LoadData();
         }
 
-        // ============================================================
-        //  ARAYÜZ KURULUMU
-        // ============================================================
+        // ════════════════════════════════════════════════════════════
         private void InitUI()
         {
-            this.BackColor = Theme.Background;
-            this.Dock = DockStyle.Fill;
+            this.BackColor       = Theme.Background;
+            this.Dock            = DockStyle.Fill;
             this.FormBorderStyle = FormBorderStyle.None;
 
-            // İçerik (en alta eklenir ki header'ın altında kalsın → sonra BringToFront)
+            // ── Sayfa başlığı şeridi ────────────────────────────────
+            Panel topBar = BuildTopBar();
+            this.Controls.Add(topBar);
+
+            // ── İçerik ─────────────────────────────────────────────
             Panel content = new Panel
             {
-                Dock = DockStyle.Fill,
+                Dock      = DockStyle.Fill,
                 BackColor = Theme.Background,
-                Padding = new Padding(Theme.PagePad)
+                Padding   = new Padding(Theme.PagePad, Theme.Gap, Theme.PagePad, Theme.PagePad)
             };
             this.Controls.Add(content);
-
-            // Sayfa başlığı şeridi (beyaz, ince alt çizgili — sade sayfa başlığı)
-            this.Controls.Add(BuildHeader());
             content.BringToFront();
 
-            // İçerik düzeni: üstte KPI satırı (sabit yükseklik), altta grafik + liste (kalan alan)
+            // Düzen: üstte KPI satırı (sabit), altta grafik + liste
             TableLayoutPanel grid = new TableLayoutPanel
             {
-                Dock = DockStyle.Fill,
+                Dock        = DockStyle.Fill,
                 ColumnCount = 1,
-                RowCount = 2,
-                BackColor = Color.Transparent
+                RowCount    = 2,
+                BackColor   = Color.Transparent
             };
-            grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 120F)); // KPI kartları
-            grid.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));  // Grafik + liste
+            grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 128F));
+            grid.RowStyles.Add(new RowStyle(SizeType.Percent,  100F));
             content.Controls.Add(grid);
 
             grid.Controls.Add(BuildKpiRow(), 0, 0);
             grid.Controls.Add(BuildBottomRow(), 0, 1);
         }
 
-        // --- Sayfa başlığı + tarih aralığı kontrolleri ---
-        private Panel BuildHeader()
+        // ── Üst başlık şeridi (sayfa adı + tarih seçici) ───────────
+        private Panel BuildTopBar()
         {
-            Panel header = new Panel
+            Panel bar = new Panel
             {
-                Dock = DockStyle.Top,
-                Height = 64,
+                Dock      = DockStyle.Top,
+                Height    = 60,
                 BackColor = Theme.Surface,
-                Padding = new Padding(Theme.PagePad, 0, Theme.PagePad, 0)
+                Padding   = new Padding(Theme.PagePad, 0, Theme.PagePad, 0)
             };
-            // Alt ayraç çizgisi
-            header.Paint += (s, e) =>
+            bar.Paint += (s, e) =>
             {
-                using (var pen = new Pen(Theme.Border, 1))
-                    e.Graphics.DrawLine(pen, 0, header.Height - 1, header.Width, header.Height - 1);
+                using (var p = new Pen(Theme.Border, 1))
+                    e.Graphics.DrawLine(p, 0, bar.Height - 1, bar.Width, bar.Height - 1);
             };
 
             Label title = new Label
             {
-                Text = "Ana Sayfa",
-                Font = Theme.H1,
-                ForeColor = Theme.TextStrong,
-                AutoSize = true,
-                Location = new Point(Theme.PagePad, 18)
+                Text      = "Ana Sayfa",
+                Font      = Theme.H1,
+                ForeColor = Theme.TextPrimary,
+                AutoSize  = true,
+                Location  = new Point(Theme.PagePad, 14)
             };
-            header.Controls.Add(title);
+            bar.Controls.Add(title);
 
-            // Sağ taraftaki tarih kontrolleri (sağa yaslı akış)
-            FlowLayoutPanel controls = new FlowLayoutPanel
+            // Sağ: tarih kontrolleri
+            FlowLayoutPanel ctrl = new FlowLayoutPanel
             {
-                Dock = DockStyle.Right,
+                Dock          = DockStyle.Right,
                 FlowDirection = FlowDirection.LeftToRight,
-                WrapContents = false,
-                AutoSize = true,
-                BackColor = Color.Transparent,
-                Padding = new Padding(0, 14, 0, 0)
+                WrapContents  = false,
+                AutoSize      = true,
+                BackColor     = Color.Transparent,
+                Padding       = new Padding(0, 13, 0, 0)
             };
-            header.Controls.Add(controls);
+            bar.Controls.Add(ctrl);
 
-            _dtpStart = new DateTimePicker
-            {
-                Format = DateTimePickerFormat.Short,
-                Width = 110,
-                Font = Theme.Body,
-                Value = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1),
-                Margin = new Padding(4, 4, 4, 4)
-            };
+            _dtpStart = Theme.MakeDatePicker(105);
+            _dtpStart.Value        = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+            _dtpStart.Margin       = new Padding(4, 4, 2, 4);
             _dtpStart.ValueChanged += (s, e) => LoadChartAndStock();
-            controls.Controls.Add(_dtpStart);
+            ctrl.Controls.Add(_dtpStart);
 
-            controls.Controls.Add(new Label
+            ctrl.Controls.Add(new Label
             {
-                Text = "–",
-                Font = Theme.Body,
-                ForeColor = Theme.TextMuted,
-                AutoSize = true,
-                Margin = new Padding(2, 10, 2, 0)
+                Text      = "–",
+                Font      = Theme.Body,
+                ForeColor = Theme.TextSecond,
+                AutoSize  = true,
+                Margin    = new Padding(0, 8, 0, 0)
             });
 
-            _dtpEnd = new DateTimePicker
-            {
-                Format = DateTimePickerFormat.Short,
-                Width = 110,
-                Font = Theme.Body,
-                Value = DateTime.Today,
-                Margin = new Padding(4, 4, 4, 4)
-            };
+            _dtpEnd = Theme.MakeDatePicker(105);
+            _dtpEnd.Value        = DateTime.Today;
+            _dtpEnd.Margin       = new Padding(2, 4, 4, 4);
             _dtpEnd.ValueChanged += (s, e) => LoadChartAndStock();
-            controls.Controls.Add(_dtpEnd);
+            ctrl.Controls.Add(_dtpEnd);
 
-            controls.Controls.Add(BuildGhostButton("Bu Hafta", () =>
+            ctrl.Controls.Add(BuildGhostBtn("Bu Hafta", () =>
             {
-                var today = DateTime.Today;
-                int diff = (7 + (today.DayOfWeek - DayOfWeek.Monday)) % 7;
-                _dtpStart.Value = today.AddDays(-diff);
-                _dtpEnd.Value = today;
+                var t   = DateTime.Today;
+                int d   = (7 + (t.DayOfWeek - DayOfWeek.Monday)) % 7;
+                _dtpStart.Value = t.AddDays(-d);
+                _dtpEnd.Value   = t;
             }));
-            controls.Controls.Add(BuildGhostButton("Bu Ay", () =>
+            ctrl.Controls.Add(BuildGhostBtn("Bu Ay", () =>
             {
                 _dtpStart.Value = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
-                _dtpEnd.Value = DateTime.Today;
+                _dtpEnd.Value   = DateTime.Today;
             }));
 
-            return header;
+            return bar;
         }
 
-        // --- 3 adet özet (KPI) kartı ---
+        // ── 3 KPI kartı ─────────────────────────────────────────────
         private TableLayoutPanel BuildKpiRow()
         {
-            TableLayoutPanel row = new TableLayoutPanel
+            var row = new TableLayoutPanel
             {
-                Dock = DockStyle.Fill,
+                Dock        = DockStyle.Fill,
                 ColumnCount = 3,
-                RowCount = 1,
-                BackColor = Color.Transparent
+                RowCount    = 1,
+                BackColor   = Color.Transparent,
+                Margin      = new Padding(0, 0, 0, Theme.Gap)
             };
             for (int i = 0; i < 3; i++)
-                row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F / 3));
+                row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33F));
 
-            row.Controls.Add(BuildStatCard("BUGÜNKÜ CİRO", Theme.Money, out _lblTodayCiro), 0, 0);
-            row.Controls.Add(BuildStatCard("AYLIK CİRO", Theme.MoneyBlue, out _lblMonthlyCiro), 1, 0);
-            row.Controls.Add(BuildStatCard("BUGÜNKÜ SATIŞ", Color.White, out _lblTodayCount), 2, 0);
+            row.Controls.Add(BuildKpiCard("BUGÜNKÜ CİRO",  Theme.Success,  "₺",   out _lblTodayCiro),    0, 0);
+            row.Controls.Add(BuildKpiCard("AYLIK CİRO",    Theme.Info,     "₺",   out _lblMonthlyCiro),  1, 0);
+            row.Controls.Add(BuildKpiCard("BUGÜNKÜ SATIŞ", Theme.Warning,  "adet",out _lblTodayCount),   2, 0);
 
             return row;
         }
 
-        // --- Alt satır: solda grafik, sağda kritik stok ---
+        private Panel BuildKpiCard(string caption, Color accentColor, string unit, out Label valueLabel)
+        {
+            Panel card = new Panel
+            {
+                Dock      = DockStyle.Fill,
+                BackColor = Theme.Surface,
+                Margin    = new Padding(0, 0, Theme.Gap, 0)
+            };
+            card.Paint += (s, e) =>
+            {
+                using (var p = new Pen(Theme.Border, 1))
+                    e.Graphics.DrawRectangle(p, 0, 0, card.Width - 1, card.Height - 1);
+                // Üst aksan şeridi
+                using (var b = new SolidBrush(accentColor))
+                    e.Graphics.FillRectangle(b, 0, 0, card.Width, 3);
+            };
+
+            Label lblCap = new Label
+            {
+                Text      = caption,
+                Font      = new Font("Segoe UI", 8, FontStyle.Bold),
+                ForeColor = Theme.TextSecond,
+                AutoSize  = true,
+                BackColor = Color.Transparent,
+                Location  = new Point(Theme.CardPad, 18)
+            };
+            card.Controls.Add(lblCap);
+
+            valueLabel = new Label
+            {
+                Text      = "—",
+                Font      = new Font("Consolas", 26, FontStyle.Bold),
+                ForeColor = accentColor,
+                AutoSize  = true,
+                BackColor = Color.Transparent,
+                Location  = new Point(Theme.CardPad, 38)
+            };
+            card.Controls.Add(valueLabel);
+
+            Label lblUnit = new Label
+            {
+                Text      = unit,
+                Font      = Theme.Caption,
+                ForeColor = Theme.TextMuted,
+                AutoSize  = true,
+                BackColor = Color.Transparent,
+                Location  = new Point(Theme.CardPad, 96)
+            };
+            card.Controls.Add(lblUnit);
+
+            return card;
+        }
+
+        // ── Alt satır: grafik + kritik stok ─────────────────────────
         private TableLayoutPanel BuildBottomRow()
         {
-            TableLayoutPanel row = new TableLayoutPanel
+            var row = new TableLayoutPanel
             {
-                Dock = DockStyle.Fill,
+                Dock        = DockStyle.Fill,
                 ColumnCount = 2,
-                RowCount = 1,
-                BackColor = Color.Transparent,
-                Margin = new Padding(0, Theme.Gap, 0, 0)
+                RowCount    = 1,
+                BackColor   = Color.Transparent
             };
-            row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 64F));
-            row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 36F));
+            row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 65F));
+            row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 35F));
 
-            // Grafik kartı
+            // Grafik
             _chartPanel = new Panel
             {
-                Dock = DockStyle.Fill,
+                Dock      = DockStyle.Fill,
                 BackColor = Theme.Surface,
-                Margin = new Padding(0, 0, Theme.Gap / 2, 0)
+                Margin    = new Padding(0, 0, Theme.Gap / 2, 0)
             };
             _chartPanel.Paint += ChartPanel_Paint;
             row.Controls.Add(_chartPanel, 0, 0);
 
-            // Kritik stok kartı
+            // Kritik stok
             row.Controls.Add(BuildLowStockCard(), 1, 0);
 
             return row;
@@ -224,165 +256,69 @@ namespace MN_Barcode.WinForms
         {
             Panel card = new Panel
             {
-                Dock = DockStyle.Fill,
+                Dock      = DockStyle.Fill,
                 BackColor = Theme.Surface,
-                Margin = new Padding(Theme.Gap / 2, 0, 0, 0),
-                Padding = new Padding(1) // kenarlık çizimi için
+                Margin    = new Padding(Theme.Gap / 2, 0, 0, 0)
             };
             card.Paint += (s, e) => Theme.PaintCard(card, e, Theme.Warning);
 
             Label head = new Label
             {
-                Text = "Kritik Stok",
-                Font = Theme.H2,
+                Text      = "Kritik Stok",
+                Font      = Theme.H3,
                 ForeColor = Theme.Warning,
-                Dock = DockStyle.Top,
-                Height = 48,
+                Dock      = DockStyle.Top,
+                Height    = 44,
                 TextAlign = ContentAlignment.MiddleLeft,
-                Padding = new Padding(Theme.CardPad, 0, 0, 0)
+                Padding   = new Padding(Theme.CardPad + 4, 0, 0, 0),
+                BackColor = Color.Transparent
             };
 
-            _gridLowStock = BuildGrid();
-            _gridLowStock.Columns.Add("Name", "ÜRÜN");
-            _gridLowStock.Columns["Name"].FillWeight = 150;
-            _gridLowStock.Columns.Add("Stock", "STOK");
-            _gridLowStock.Columns["Stock"].FillWeight = 55;
+            var sep = new Panel { Dock = DockStyle.Top, Height = 1, BackColor = Theme.Border };
 
-            Panel gridWrap = new Panel { Dock = DockStyle.Fill, Padding = new Padding(Theme.CardPad - 8, 0, Theme.CardPad - 8, Theme.CardPad - 8) };
-            gridWrap.Controls.Add(_gridLowStock);
+            _gridLowStock = Theme.MakeDarkGrid();
+            _gridLowStock.Columns.Add("Name",  "ÜRÜN");     _gridLowStock.Columns["Name"].FillWeight  = 150;
+            _gridLowStock.Columns.Add("Stock", "STOK");     _gridLowStock.Columns["Stock"].FillWeight = 50;
 
-            card.Controls.Add(gridWrap);
+            Panel wrap = new Panel
+            {
+                Dock    = DockStyle.Fill,
+                Padding = new Padding(8, 4, 8, 8)
+            };
+            wrap.Controls.Add(_gridLowStock);
+
+            card.Controls.Add(wrap);
+            card.Controls.Add(sep);
             card.Controls.Add(head);
             return card;
         }
 
-        // ============================================================
-        //  KÜÇÜK BİLEŞENLER
-        // ============================================================
-
-        // KPI kartı — "Hızlı Satış" ekranındaki TOPLAM paneli tarzında:
-        // koyu zemin, üstte soluk etiket, altında büyük canlı Consolas rakam.
-        private Panel BuildStatCard(string caption, Color numberColor, out Label valueLabel)
-        {
-            Panel card = new Panel
-            {
-                Dock = DockStyle.Fill,
-                BackColor = Theme.PanelDark, // Koyu panel (POS tarzı)
-                Margin = new Padding(Theme.Gap / 2, 0, Theme.Gap / 2, 0)
-            };
-
-            Label lblCaption = new Label
-            {
-                Text = caption,
-                Font = Theme.Caption,
-                ForeColor = Theme.CaptionOnDark, // Koyu üstünde gümüş etiket
-                AutoSize = true,
-                BackColor = Color.Transparent,
-                Location = new Point(Theme.CardPad, 18)
-            };
-            card.Controls.Add(lblCaption);
-
-            valueLabel = new Label
-            {
-                Text = "—",
-                Font = Theme.Number,             // Consolas büyük rakam
-                ForeColor = numberColor,         // Canlı renk (yeşil/mavi/beyaz)
-                AutoSize = true,
-                BackColor = Color.Transparent,
-                Location = new Point(Theme.CardPad - 2, 44)
-            };
-            card.Controls.Add(valueLabel);
-
-            return card;
-        }
-
-        // "Hayalet" buton: zemini yok, ince kenarlık — sade, dikkat dağıtmaz.
-        private Button BuildGhostButton(string text, Action onClick)
-        {
-            Button btn = new Button
-            {
-                Text = text,
-                AutoSize = false,
-                Width = 72,
-                Height = 30,
-                BackColor = Theme.Surface,
-                ForeColor = Theme.TextDark,
-                FlatStyle = FlatStyle.Flat,
-                Font = Theme.Caption,
-                Cursor = Cursors.Hand,
-                Margin = new Padding(4, 4, 0, 4)
-            };
-            btn.FlatAppearance.BorderColor = Theme.Border;
-            btn.FlatAppearance.BorderSize = 1;
-            btn.FlatAppearance.MouseOverBackColor = Theme.Background;
-            btn.Click += (s, e) => onClick();
-            return btn;
-        }
-
-        // Sade veri tablosu (çizgisiz, soluk başlık).
-        private DataGridView BuildGrid()
-        {
-            DataGridView grid = new DataGridView
-            {
-                Dock = DockStyle.Fill,
-                BackgroundColor = Theme.Surface,
-                BorderStyle = BorderStyle.None,
-                RowHeadersVisible = false,
-                AllowUserToAddRows = false,
-                AllowUserToResizeRows = false,
-                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
-                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
-                MultiSelect = false,
-                ReadOnly = true,
-                GridColor = Theme.Border,
-                CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal,
-                EnableHeadersVisualStyles = false,
-                ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.None
-            };
-            grid.RowTemplate.Height = 38;
-            grid.DefaultCellStyle.Font = Theme.Body;
-            grid.DefaultCellStyle.ForeColor = Theme.TextDark;
-            grid.DefaultCellStyle.BackColor = Theme.Surface;
-            grid.DefaultCellStyle.SelectionBackColor = Theme.Background;
-            grid.DefaultCellStyle.SelectionForeColor = Theme.TextDark;
-            grid.DefaultCellStyle.Padding = new Padding(4, 0, 4, 0);
-
-            grid.ColumnHeadersHeight = 38;
-            grid.ColumnHeadersDefaultCellStyle.Font = Theme.Caption;
-            grid.ColumnHeadersDefaultCellStyle.ForeColor = Theme.TextMuted;
-            grid.ColumnHeadersDefaultCellStyle.BackColor = Theme.Surface;
-            return grid;
-        }
-
-        // ============================================================
-        //  SATIŞ GRAFİĞİ (sade çizgi grafik)
-        // ============================================================
+        // ════════════════════════════════════════════════════════════
+        //  GRAFİK ÇİZİMİ
+        // ════════════════════════════════════════════════════════════
         private void ChartPanel_Paint(object sender, PaintEventArgs e)
         {
             Panel panel = (Panel)sender;
-            Graphics g = e.Graphics;
+            Graphics g  = e.Graphics;
             g.SmoothingMode = SmoothingMode.AntiAlias;
 
-            // Kart kenarlığı + sol mavi vurgu
-            Theme.PaintCard(panel, e, Theme.Primary);
+            Theme.PaintCard(panel, e, Theme.Accent);
 
-            // Başlık
-            using (var brush = new SolidBrush(Theme.TextDark))
-                g.DrawString("Satış Grafiği", Theme.H2, brush, Theme.CardPad, 16);
+            using (var b = new SolidBrush(Theme.TextPrimary))
+                g.DrawString("Satış Grafiği", Theme.H2, b, Theme.CardPad + 4, 14);
 
-            int padL = 64, padR = 24, padT = 56, padB = 44;
+            int padL = 60, padR = 20, padT = 52, padB = 36;
             int chartW = panel.Width - padL - padR;
             int chartH = panel.Height - padT - padB;
             if (chartW <= 10 || chartH <= 10) return;
 
-            // Veri yoksa nazik bir mesaj göster
             if (_chartData == null || _chartData.Count == 0)
             {
-                using (var brush = new SolidBrush(Theme.TextMuted))
+                using (var b = new SolidBrush(Theme.TextMuted))
                 {
                     string msg = "Bu tarih aralığında satış yok";
-                    SizeF sz = g.MeasureString(msg, Theme.Body);
-                    g.DrawString(msg, Theme.Body, brush, panel.Width / 2 - sz.Width / 2, panel.Height / 2);
+                    SizeF sz   = g.MeasureString(msg, Theme.Body);
+                    g.DrawString(msg, Theme.Body, b, panel.Width / 2f - sz.Width / 2, panel.Height / 2f);
                 }
                 return;
             }
@@ -390,84 +326,100 @@ namespace MN_Barcode.WinForms
             decimal maxValue = _chartData.Max(x => x.Total);
             if (maxValue == 0) maxValue = 1;
 
-            // Yatay grid çizgileri + Y ekseni değerleri (soluk)
-            using (var gridPen = new Pen(Theme.Border, 1))
-            using (var brush = new SolidBrush(Theme.TextMuted))
+            // Grid çizgileri + Y ekseni
+            using (var gp = new Pen(Theme.Border, 1))
+            using (var tb = new SolidBrush(Theme.TextMuted))
             {
                 for (int i = 0; i <= 4; i++)
                 {
-                    int y = padT + (chartH * i / 4);
-                    g.DrawLine(gridPen, padL, y, panel.Width - padR, y);
-
-                    decimal val = maxValue - (maxValue * i / 4);
-                    string valStr = val >= 1000 ? $"{val / 1000:N0}K" : $"{val:N0}";
-                    g.DrawString(valStr, Theme.Caption, brush, 8, y - 8);
+                    int y   = padT + chartH * i / 4;
+                    g.DrawLine(gp, padL, y, panel.Width - padR, y);
+                    decimal val = maxValue - maxValue * i / 4;
+                    g.DrawString(val >= 1000 ? $"{val / 1000:N0}K" : $"{val:N0}",
+                        Theme.Caption, tb, 4, y - 8);
                 }
             }
 
             int n = _chartData.Count;
             if (n == 1)
             {
-                // Tek nokta: ortada bir işaret + değer
-                int x = padL + chartW / 2;
-                int y = padT + chartH / 2;
-                using (var b = new SolidBrush(Theme.Primary))
-                    g.FillEllipse(b, x - 5, y - 5, 10, 10);
-                using (var b = new SolidBrush(Theme.TextDark))
-                    g.DrawString($"{_chartData[0].Date:dd/MM}: {_chartData[0].Total:N0} ₺", Theme.Body, b, x - 60, y - 28);
+                int cx = padL + chartW / 2, cy = padT + chartH / 2;
+                using (var b = new SolidBrush(Theme.Accent)) g.FillEllipse(b, cx - 5, cy - 5, 10, 10);
+                using (var b = new SolidBrush(Theme.TextPrimary))
+                    g.DrawString($"{_chartData[0].Date:dd/MM}: {_chartData[0].Total:N0} ₺", Theme.Body, b, cx - 55, cy - 24);
                 return;
             }
 
-            // Noktaları hesapla
-            Point[] points = new Point[n];
+            Point[] pts = new Point[n];
             for (int i = 0; i < n; i++)
             {
-                int x = padL + (chartW * i / (n - 1));
+                int x = padL + chartW * i / (n - 1);
                 int y = padT + chartH - (int)((double)_chartData[i].Total / (double)maxValue * chartH);
-                points[i] = new Point(x, y);
+                pts[i] = new Point(x, y);
             }
 
-            // Çizgi altına çok hafif dolgu (abartısız)
+            // Dolgu
             Point[] fill = new Point[n + 2];
-            Array.Copy(points, fill, n);
-            fill[n] = new Point(points[n - 1].X, padT + chartH);
-            fill[n + 1] = new Point(points[0].X, padT + chartH);
-            using (var brush = new LinearGradientBrush(
+            Array.Copy(pts, fill, n);
+            fill[n]     = new Point(pts[n - 1].X, padT + chartH);
+            fill[n + 1] = new Point(pts[0].X, padT + chartH);
+            using (var br = new LinearGradientBrush(
                 new Rectangle(padL, padT, chartW, chartH),
-                Color.FromArgb(28, Theme.Primary), Color.FromArgb(4, Theme.Primary),
+                Color.FromArgb(45, Theme.Accent), Color.FromArgb(4, Theme.Accent),
                 LinearGradientMode.Vertical))
-            {
-                g.FillPolygon(brush, fill);
-            }
+                g.FillPolygon(br, fill);
 
-            // Çizgi (ince)
-            using (var linePen = new Pen(Theme.Primary, 2) { LineJoin = LineJoin.Round })
-                g.DrawLines(linePen, points);
+            // Çizgi
+            using (var lp = new Pen(Theme.Accent, 2) { LineJoin = LineJoin.Round })
+                g.DrawLines(lp, pts);
 
-            // X ekseni tarihleri (seyrek)
-            using (var brush = new SolidBrush(Theme.TextMuted))
+            // X ekseni
+            using (var tb = new SolidBrush(Theme.TextMuted))
             {
                 int step = Math.Max(1, n / 7);
                 for (int i = 0; i < n; i += step)
                 {
                     string d = _chartData[i].Date.ToString("dd/MM");
                     SizeF sz = g.MeasureString(d, Theme.Caption);
-                    g.DrawString(d, Theme.Caption, brush, points[i].X - sz.Width / 2, padT + chartH + 8);
+                    g.DrawString(d, Theme.Caption, tb, pts[i].X - sz.Width / 2, padT + chartH + 8);
                 }
             }
         }
 
-        // ============================================================
+        // ════════════════════════════════════════════════════════════
+        //  YARDIMCI
+        // ════════════════════════════════════════════════════════════
+        private Button BuildGhostBtn(string text, Action onClick)
+        {
+            var btn = new Button
+            {
+                Text      = text,
+                Width     = 72,
+                Height    = 30,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Theme.SurfaceAlt,
+                ForeColor = Theme.TextSecond,
+                Font      = Theme.Caption,
+                Cursor    = Cursors.Hand,
+                Margin    = new Padding(4, 2, 0, 4)
+            };
+            btn.FlatAppearance.BorderColor         = Theme.Border;
+            btn.FlatAppearance.BorderSize          = 1;
+            btn.FlatAppearance.MouseOverBackColor  = Theme.Surface;
+            btn.Click += (s, e) => onClick();
+            return btn;
+        }
+
+        // ════════════════════════════════════════════════════════════
         //  VERİ YÜKLEME
-        // ============================================================
+        // ════════════════════════════════════════════════════════════
         private void LoadData()
         {
             try
             {
-                _lblTodayCiro.Text = _saleService.GetTodaySalesTotal().ToString("₺#,##0");
-                _lblMonthlyCiro.Text = _saleService.GetMonthlySalesTotal().ToString("₺#,##0");
-                _lblTodayCount.Text = _saleService.GetTodaySalesCount().ToString();
-
+                _lblTodayCiro.Text    = _saleService.GetTodaySalesTotal().ToString("₺#,##0");
+                _lblMonthlyCiro.Text  = _saleService.GetMonthlySalesTotal().ToString("₺#,##0");
+                _lblTodayCount.Text   = _saleService.GetTodaySalesCount().ToString();
                 LoadChartAndStock();
             }
             catch (Exception ex)
@@ -476,7 +428,6 @@ namespace MN_Barcode.WinForms
             }
         }
 
-        // Tarih aralığına bağlı kısımlar (grafik + kritik stok) — tarih değişince tekrar çalışır.
         private void LoadChartAndStock()
         {
             try
@@ -489,15 +440,14 @@ namespace MN_Barcode.WinForms
                 foreach (var item in _productService.GetLowStockProducts(12, 20))
                 {
                     int idx = _gridLowStock.Rows.Add(item.Name, item.StockQuantity.ToString("N0"));
-                    var stockCell = _gridLowStock.Rows[idx].Cells[1];
-                    // 5 ve altı kırmızı (kritik), diğerleri amber (uyarı).
-                    stockCell.Style.ForeColor = item.StockQuantity <= 5 ? Theme.Danger : Theme.Warning;
-                    stockCell.Style.Font = new Font(Theme.FontName, 10, FontStyle.Bold);
+                    var cell = _gridLowStock.Rows[idx].Cells[1];
+                    cell.Style.ForeColor = item.StockQuantity <= 5 ? Theme.Danger : Theme.Warning;
+                    cell.Style.Font      = new Font(Theme.FontName, 10, FontStyle.Bold);
                 }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine("Grafik/stok yüklenirken hata: " + ex.Message);
+                System.Diagnostics.Debug.WriteLine("Grafik/stok hatası: " + ex.Message);
             }
         }
     }
