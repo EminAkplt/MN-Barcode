@@ -2,163 +2,237 @@ using System;
 using System.Drawing;
 using System.Windows.Forms;
 using MN_Barcode.Business;
+using System.Linq;
 
 namespace MN_Barcode.WinForms
 {
     public class StockDashboardForm : Form
     {
         private ProductService _productService;
-        private SaleService    _saleService;
+        private SaleService _saleService;
 
         private DataGridView _gridTopSelling;
         private DataGridView _gridLowStock;
-        private Label        _lblTodaySales;
-        private Label        _lblTodayCount;
+        private Label _lblTodaySales;
+        private Label _lblTodayCount;
 
         public StockDashboardForm()
         {
             _productService = new ProductService();
-            _saleService    = new SaleService();
+            _saleService = new SaleService();
             this.DoubleBuffered = true;
             InitUI();
+
             this.Shown += (s, e) => LoadData();
         }
 
-        // ════════════════════════════════════════════════════════════
         private void InitUI()
         {
-            this.BackColor       = Theme.Background;
-            this.Dock            = DockStyle.Fill;
+            this.BackColor = Color.FromArgb(247, 250, 252);
+            this.Dock = DockStyle.Fill;
             this.FormBorderStyle = FormBorderStyle.None;
 
-            // ── HEADER ──────────────────────────────────────────────
+            // ═══════════════════════════════════════════════════════════
+            // HEADER
+            // ═══════════════════════════════════════════════════════════
             Panel header = new Panel
             {
-                Dock      = DockStyle.Top,
-                Height    = 60,
-                BackColor = Theme.Surface
-            };
-            header.Paint += (s, e) =>
-            {
-                using (var p = new Pen(Theme.Border, 1))
-                    e.Graphics.DrawLine(p, 0, header.Height - 1, header.Width, header.Height - 1);
+                Dock = DockStyle.Top,
+                Height = 70,
+                BackColor = Color.FromArgb(45, 55, 72)
             };
             this.Controls.Add(header);
 
             Label title = new Label
             {
-                Text      = "Stok Dashboard",
-                Font      = Theme.H1,
-                ForeColor = Theme.TextPrimary,
-                AutoSize  = true,
-                Location  = new Point(Theme.PagePad, 14),
-                BackColor = Color.Transparent
+                Text = "📊 STOK DASHBOARD",
+                Font = new Font("Segoe UI", 18, FontStyle.Bold),
+                ForeColor = Color.White,
+                Location = new Point(30, 20),
+                AutoSize = true
             };
             header.Controls.Add(title);
 
-            // Bugünkü satış bilgileri
+            // Bugünkü Satış Bilgileri
             _lblTodaySales = new Label
             {
-                Text      = "Bugün: ₺0",
-                Font      = Theme.H2,
-                ForeColor = Theme.Success,
-                AutoSize  = true,
-                Location  = new Point(Theme.PagePad + 200, 18),
-                BackColor = Color.Transparent
+                Text = "Bugün: ₺0",
+                Font = new Font("Segoe UI", 14, FontStyle.Bold),
+                ForeColor = Color.FromArgb(72, 187, 120),
+                Location = new Point(350, 22),
+                AutoSize = true
             };
             header.Controls.Add(_lblTodaySales);
 
             _lblTodayCount = new Label
             {
-                Text      = "(0 satış)",
-                Font      = Theme.Body,
-                ForeColor = Theme.TextSecond,
-                AutoSize  = true,
-                Location  = new Point(Theme.PagePad + 400, 20),
-                BackColor = Color.Transparent
+                Text = "(0 satış)",
+                Font = new Font("Segoe UI", 12),
+                ForeColor = Color.FromArgb(160, 174, 192),
+                Location = new Point(550, 25),
+                AutoSize = true
             };
             header.Controls.Add(_lblTodayCount);
 
-            // Yenile butonu (sağda)
-            Button btnRefresh = Theme.MakeButton("  Yenile", Theme.SurfaceAlt, Theme.TextPrimary, 110, 36, 10);
-            btnRefresh.Anchor   = AnchorStyles.Right | AnchorStyles.Top;
-            btnRefresh.Location = new Point(header.Width - 130, 12);
-            btnRefresh.FlatAppearance.BorderColor         = Theme.Border;
-            btnRefresh.FlatAppearance.BorderSize          = 1;
-            btnRefresh.FlatAppearance.MouseOverBackColor  = Theme.Surface;
+            // Yenile Butonu
+            Button btnRefresh = new Button
+            {
+                Text = "🔄 Yenile",
+                Size = new Size(120, 40),
+                Location = new Point(header.Width - 150, 15),
+                Anchor = AnchorStyles.Right | AnchorStyles.Top,
+                BackColor = Color.FromArgb(66, 153, 225),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Segoe UI", 11, FontStyle.Bold),
+                Cursor = Cursors.Hand
+            };
+            btnRefresh.FlatAppearance.BorderSize = 0;
             btnRefresh.Click += (s, e) => LoadData();
             header.Controls.Add(btnRefresh);
-            header.Resize += (s, e) => btnRefresh.Location = new Point(header.Width - 130, 12);
 
-            // ── İÇERİK ─────────────────────────────────────────────
+            // ═══════════════════════════════════════════════════════════
+            // İÇERİK - 2 SÜTUN
+            // ═══════════════════════════════════════════════════════════
             TableLayoutPanel content = new TableLayoutPanel
             {
-                Dock        = DockStyle.Fill,
+                Dock = DockStyle.Fill,
                 ColumnCount = 2,
-                RowCount    = 1,
-                Padding     = new Padding(Theme.PagePad, Theme.Gap, Theme.PagePad, Theme.PagePad)
+                RowCount = 1,
+                Padding = new Padding(20)
             };
             content.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
             content.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
             this.Controls.Add(content);
             content.BringToFront();
 
-            // Sol: En çok satılanlar
-            Panel left = Theme.MakeCard("En Çok Satılan Ürünler", Theme.Accent);
-            content.Controls.Add(left, 0, 0);
+            // SOL PANEL - EN ÇOK SATILAN
+            Panel leftPanel = CreateCardPanel("🏆 EN ÇOK SATILAN ÜRÜNLER");
+            content.Controls.Add(leftPanel, 0, 0);
 
-            _gridTopSelling = Theme.MakeDarkGrid();
-            _gridTopSelling.Columns.Add("Rank",     "#");           _gridTopSelling.Columns["Rank"].Width      = 48;
-            _gridTopSelling.Columns.Add("Name",     "ÜRÜN ADI");    _gridTopSelling.Columns["Name"].FillWeight = 150;
-            _gridTopSelling.Columns.Add("Quantity", "SATILAN ADET");_gridTopSelling.Columns["Quantity"].FillWeight = 80;
-            _gridTopSelling.Columns.Add("Revenue",  "TOPLAM CİRO"); _gridTopSelling.Columns["Revenue"].FillWeight  = 80;
-            _gridTopSelling.Columns["Revenue"].DefaultCellStyle.ForeColor = Theme.Success;
-            _gridTopSelling.Columns["Revenue"].DefaultCellStyle.Font      = new Font("Consolas", 10, FontStyle.Bold);
+            _gridTopSelling = CreateGrid();
+            _gridTopSelling.Columns.Add("Rank", "#");
+            _gridTopSelling.Columns["Rank"].Width = 50;
+            _gridTopSelling.Columns.Add("Name", "ÜRÜN ADI");
+            _gridTopSelling.Columns["Name"].FillWeight = 150;
+            _gridTopSelling.Columns.Add("Quantity", "SATILAN ADET");
+            _gridTopSelling.Columns["Quantity"].FillWeight = 80;
+            _gridTopSelling.Columns.Add("Revenue", "TOPLAM CİRO");
+            _gridTopSelling.Columns["Revenue"].FillWeight = 80;
 
-            Panel gw1 = new Panel { Dock = DockStyle.Fill, Padding = new Padding(8, 4, 8, 8) };
-            gw1.Controls.Add(_gridTopSelling);
-            left.Controls.Add(gw1);
+            Panel gridContainer1 = new Panel { Dock = DockStyle.Fill, Padding = new Padding(15, 0, 15, 15) };
+            gridContainer1.Controls.Add(_gridTopSelling);
+            leftPanel.Controls.Add(gridContainer1);
+            gridContainer1.BringToFront();
 
-            // Sağ: Stoğu azalanlar
-            Panel right = Theme.MakeCard("Stoğu Azalan Ürünler", Theme.Warning);
-            content.Controls.Add(right, 1, 0);
+            // SAĞ PANEL - STOĞU AZALAN
+            Panel rightPanel = CreateCardPanel("⚠️ STOĞU AZALAN ÜRÜNLER");
+            content.Controls.Add(rightPanel, 1, 0);
 
-            _gridLowStock = Theme.MakeDarkGrid();
-            _gridLowStock.Columns.Add("Name",     "ÜRÜN ADI");  _gridLowStock.Columns["Name"].FillWeight     = 150;
-            _gridLowStock.Columns.Add("Category", "KATEGORİ"); _gridLowStock.Columns["Category"].FillWeight  = 80;
-            _gridLowStock.Columns.Add("Stock",    "STOK");      _gridLowStock.Columns["Stock"].FillWeight     = 60;
+            _gridLowStock = CreateGrid();
+            _gridLowStock.Columns.Add("Name", "ÜRÜN ADI");
+            _gridLowStock.Columns["Name"].FillWeight = 150;
+            _gridLowStock.Columns.Add("Category", "KATEGORİ");
+            _gridLowStock.Columns["Category"].FillWeight = 80;
+            _gridLowStock.Columns.Add("Stock", "STOK");
+            _gridLowStock.Columns["Stock"].FillWeight = 60;
 
-            Panel gw2 = new Panel { Dock = DockStyle.Fill, Padding = new Padding(8, 4, 8, 8) };
-            gw2.Controls.Add(_gridLowStock);
-            right.Controls.Add(gw2);
+            Panel gridContainer2 = new Panel { Dock = DockStyle.Fill, Padding = new Padding(15, 0, 15, 15) };
+            gridContainer2.Controls.Add(_gridLowStock);
+            rightPanel.Controls.Add(gridContainer2);
+            gridContainer2.BringToFront();
         }
 
-        // ════════════════════════════════════════════════════════════
-        //  VERİ YÜKLEME
-        // ════════════════════════════════════════════════════════════
+        private Panel CreateCardPanel(string title)
+        {
+            Panel panel = new Panel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Color.White,
+                Margin = new Padding(10)
+            };
+
+            Label lbl = new Label
+            {
+                Text = title,
+                Font = new Font("Segoe UI", 14, FontStyle.Bold),
+                ForeColor = Color.FromArgb(45, 55, 72),
+                Dock = DockStyle.Top,
+                Height = 50,
+                TextAlign = ContentAlignment.MiddleLeft,
+                Padding = new Padding(15, 10, 0, 0)
+            };
+            panel.Controls.Add(lbl);
+
+            return panel;
+        }
+
+        private DataGridView CreateGrid()
+        {
+            DataGridView grid = new DataGridView
+            {
+                Dock = DockStyle.Fill,
+                BackgroundColor = Color.White,
+                BorderStyle = BorderStyle.None,
+                RowHeadersVisible = false,
+                AllowUserToAddRows = false,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+                MultiSelect = false,
+                ReadOnly = true
+            };
+            grid.RowTemplate.Height = 45;
+            grid.DefaultCellStyle.Font = new Font("Segoe UI", 11);
+            grid.DefaultCellStyle.ForeColor = Color.FromArgb(45, 55, 72);
+            grid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(237, 242, 247);
+            grid.DefaultCellStyle.SelectionForeColor = Color.FromArgb(45, 55, 72);
+            grid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(247, 250, 252);
+
+            grid.ColumnHeadersHeight = 45;
+            grid.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 10, FontStyle.Bold);
+            grid.ColumnHeadersDefaultCellStyle.ForeColor = Color.FromArgb(113, 128, 150);
+            grid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(237, 242, 247);
+            grid.ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.None;
+            grid.EnableHeadersVisualStyles = false;
+            grid.GridColor = Color.FromArgb(226, 232, 240);
+
+            return grid;
+        }
+
         private void LoadData()
         {
+            // Bugünkü satışlar
             decimal todayTotal = _saleService.GetTodaySalesTotal();
-            int     todayCount = _saleService.GetTodaySalesCount();
+            int todayCount = _saleService.GetTodaySalesCount();
             _lblTodaySales.Text = $"Bugün: {todayTotal:₺#,##0.00}";
             _lblTodayCount.Text = $"({todayCount} satış)";
 
+            // En çok satılanlar
             _gridTopSelling.Rows.Clear();
+            var topSelling = _saleService.GetTopSellingProducts(10);
             int rank = 1;
-            foreach (var item in _saleService.GetTopSellingProducts(10))
-                _gridTopSelling.Rows.Add(rank++, item.ProductName,
-                    item.TotalQuantity.ToString("N0"),
-                    item.TotalRevenue.ToString("₺#,##0.00"));
-
-            _gridLowStock.Rows.Clear();
-            foreach (var item in _productService.GetLowStockProducts(10, 20))
+            foreach (var item in topSelling)
             {
-                int idx = _gridLowStock.Rows.Add(item.Name, item.Category?.Name ?? "-",
-                    item.StockQuantity.ToString("N0"));
-                var cell = _gridLowStock.Rows[idx].Cells[2];
-                cell.Style.ForeColor = item.StockQuantity <= 5 ? Theme.Danger : Theme.Warning;
+                _gridTopSelling.Rows.Add(rank++, item.ProductName, item.TotalQuantity.ToString("N0"), item.TotalRevenue.ToString("₺#,##0.00"));
+            }
+
+            // Stoğu azalanlar
+            _gridLowStock.Rows.Clear();
+            var lowStock = _productService.GetLowStockProducts(10, 20);
+            foreach (var item in lowStock)
+            {
+                int idx = _gridLowStock.Rows.Add(item.Name, item.Category?.Name ?? "-", item.StockQuantity.ToString("N0"));
+                
+                // Stok renklendirme
                 if (item.StockQuantity <= 5)
-                    cell.Style.Font = new Font("Segoe UI", 10, FontStyle.Bold);
+                {
+                    _gridLowStock.Rows[idx].Cells[2].Style.ForeColor = Color.FromArgb(229, 62, 62);
+                    _gridLowStock.Rows[idx].Cells[2].Style.Font = new Font("Segoe UI", 11, FontStyle.Bold);
+                }
+                else
+                {
+                    _gridLowStock.Rows[idx].Cells[2].Style.ForeColor = Color.FromArgb(237, 137, 54);
+                }
             }
         }
     }

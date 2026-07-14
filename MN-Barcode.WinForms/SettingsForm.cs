@@ -1,5 +1,6 @@
 using System;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Windows.Forms;
 using MN_Barcode.Business;
 
@@ -8,10 +9,23 @@ namespace MN_Barcode.WinForms
     public class SettingsForm : Form
     {
         private SettingsService _settingsService;
-
+        
+        // Şifre textboxları
         private TextBox _txtUserPassword;
         private TextBox _txtAdminPassword;
         private TextBox _txtReportsPassword;
+
+        // Renk Paleti
+        private readonly Color BgColor = Color.FromArgb(248, 250, 252);
+        private readonly Color CardBg = Color.White;
+        private readonly Color HeaderBg = Color.FromArgb(30, 41, 59);
+        private readonly Color PrimaryBlue = Color.FromArgb(59, 130, 246);
+        private readonly Color SuccessGreen = Color.FromArgb(16, 185, 129);
+        private readonly Color DangerRed = Color.FromArgb(239, 68, 68);
+        private readonly Color WarningOrange = Color.FromArgb(245, 158, 11);
+        private readonly Color TextDark = Color.FromArgb(30, 41, 59);
+        private readonly Color TextMuted = Color.FromArgb(100, 116, 139);
+        private readonly Color BorderColor = Color.FromArgb(226, 232, 240);
 
         public SettingsForm()
         {
@@ -20,196 +34,280 @@ namespace MN_Barcode.WinForms
             LoadCurrentPasswords();
         }
 
-        // ════════════════════════════════════════════════════════════
         private void InitUI()
         {
-            this.BackColor       = Theme.Background;
-            this.Dock            = DockStyle.Fill;
+            this.BackColor = BgColor;
+            this.Dock = DockStyle.Fill;
             this.FormBorderStyle = FormBorderStyle.None;
-            this.DoubleBuffered  = true;
 
-            // ── HEADER ──────────────────────────────────────────────
+            // ═══════════════════════════════════════════════════════════
+            // HEADER
+            // ═══════════════════════════════════════════════════════════
             Panel header = new Panel
             {
-                Dock      = DockStyle.Top,
-                Height    = 60,
-                BackColor = Theme.Surface
-            };
-            header.Paint += (s, e) =>
-            {
-                using (var p = new Pen(Theme.Border, 1))
-                    e.Graphics.DrawLine(p, 0, header.Height - 1, header.Width, header.Height - 1);
+                Dock = DockStyle.Top,
+                Height = 70,
+                BackColor = HeaderBg
             };
             this.Controls.Add(header);
 
             Label title = new Label
             {
-                Text      = "Ayarlar",
-                Font      = Theme.H1,
-                ForeColor = Theme.TextPrimary,
-                AutoSize  = true,
-                Location  = new Point(Theme.PagePad, 14),
-                BackColor = Color.Transparent
+                Text = "⚙️ AYARLAR",
+                Font = new Font("Segoe UI", 18, FontStyle.Bold),
+                ForeColor = Color.White,
+                Location = new Point(30, 20),
+                AutoSize = true
             };
             header.Controls.Add(title);
 
-            // ── İÇERİK ─────────────────────────────────────────────
+            // ═══════════════════════════════════════════════════════════
+            // ANA İÇERİK
+            // ═══════════════════════════════════════════════════════════
             Panel mainContent = new Panel
             {
-                Dock      = DockStyle.Fill,
-                BackColor = Theme.Background,
-                Padding   = new Padding(Theme.PagePad)
+                Dock = DockStyle.Fill,
+                Padding = new Padding(40),
+                BackColor = BgColor
             };
             this.Controls.Add(mainContent);
             mainContent.BringToFront();
 
+            // Grid layout
             TableLayoutPanel layout = new TableLayoutPanel
             {
-                Dock        = DockStyle.Fill,
+                Dock = DockStyle.Fill,
                 ColumnCount = 2,
-                RowCount    = 2,
-                BackColor   = Color.Transparent
+                RowCount = 2,
+                BackColor = Color.Transparent
             };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
-            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 72F));
-            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 28F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 70F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 30F));
             mainContent.Controls.Add(layout);
 
-            // ── ŞİFRE KARTI ─────────────────────────────────────────
-            Panel passCard = Theme.MakeCard("Şifre Ayarları", Theme.Accent);
-            layout.Controls.Add(passCard, 0, 0);
+            // ═══════════════════════════════════════════════════════════
+            // ŞİFRE AYARLARI KARTI
+            // ═══════════════════════════════════════════════════════════
+            Panel passwordCard = CreateCard("🔐 ŞİFRE AYARLARI", PrimaryBlue);
+            layout.Controls.Add(passwordCard, 0, 0);
 
-            Panel passContent = new Panel
+            Panel passwordContent = new Panel
             {
-                Dock       = DockStyle.Fill,
-                Padding    = new Padding(Theme.CardPad, 8, Theme.CardPad, Theme.CardPad),
-                BackColor  = Color.Transparent
+                Dock = DockStyle.Fill,
+                Padding = new Padding(20, 10, 20, 20)
             };
-            passCard.Controls.Add(passContent);
+            passwordCard.Controls.Add(passwordContent);
+            passwordContent.BringToFront();
 
-            int y = 8;
-            AddPassField(passContent, "Kullanıcı Şifresi", ref y, out _txtUserPassword);
-            y += 4;
-            AddPassField(passContent, "Super Admin Şifresi", ref y, out _txtAdminPassword);
-            y += 4;
-            AddPassField(passContent, "Raporlar Şifresi", ref y, out _txtReportsPassword);
-            y += 12;
+            // Kullanıcı Şifresi
+            Label lblUser = new Label
+            {
+                Text = "👤 Kullanıcı Şifresi",
+                Font = new Font("Segoe UI", 11, FontStyle.Bold),
+                ForeColor = TextDark,
+                Location = new Point(0, 10),
+                AutoSize = true
+            };
+            passwordContent.Controls.Add(lblUser);
 
-            Button btnSave = Theme.MakeButton("  Şifreleri Kaydet", Theme.Success, Color.White, 200, 44, 10.5f);
-            btnSave.Location = new Point(0, y);
-            btnSave.FlatAppearance.MouseOverBackColor = Color.FromArgb(5, 150, 105);
-            btnSave.Click += BtnSavePasswords_Click;
-            passContent.Controls.Add(btnSave);
+            _txtUserPassword = CreatePasswordTextBox(0, 35);
+            passwordContent.Controls.Add(_txtUserPassword);
 
-            // ── BİLGİLENDİRME KARTI ─────────────────────────────────
-            Panel infoCard = Theme.MakeCard("Bilgilendirme", Theme.Info);
+            // Admin Şifresi
+            Label lblAdmin = new Label
+            {
+                Text = "🛡️ Super Admin Şifresi",
+                Font = new Font("Segoe UI", 11, FontStyle.Bold),
+                ForeColor = TextDark,
+                Location = new Point(0, 85),
+                AutoSize = true
+            };
+            passwordContent.Controls.Add(lblAdmin);
+
+            _txtAdminPassword = CreatePasswordTextBox(0, 110);
+            passwordContent.Controls.Add(_txtAdminPassword);
+
+            // Raporlar Şifresi
+            Label lblReports = new Label
+            {
+                Text = "📊 Raporlar Şifresi",
+                Font = new Font("Segoe UI", 11, FontStyle.Bold),
+                ForeColor = TextDark,
+                Location = new Point(0, 160),
+                AutoSize = true
+            };
+            passwordContent.Controls.Add(lblReports);
+
+            _txtReportsPassword = CreatePasswordTextBox(0, 185);
+            passwordContent.Controls.Add(_txtReportsPassword);
+
+            // Şifreleri Kaydet Butonu
+            Button btnSavePasswords = new Button
+            {
+                Text = "💾 Şifreleri Kaydet",
+                Size = new Size(200, 45),
+                Location = new Point(0, 240),
+                BackColor = SuccessGreen,
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Segoe UI", 11, FontStyle.Bold),
+                Cursor = Cursors.Hand
+            };
+            btnSavePasswords.FlatAppearance.BorderSize = 0;
+            btnSavePasswords.Click += BtnSavePasswords_Click;
+            passwordContent.Controls.Add(btnSavePasswords);
+
+            // ═══════════════════════════════════════════════════════════
+            // BİLGİ KARTI
+            // ═══════════════════════════════════════════════════════════
+            Panel infoCard = CreateCard("ℹ️ BİLGİLENDİRME", WarningOrange);
             layout.Controls.Add(infoCard, 1, 0);
 
             Panel infoContent = new Panel
             {
-                Dock      = DockStyle.Fill,
-                Padding   = new Padding(Theme.CardPad, 8, Theme.CardPad, Theme.CardPad),
-                BackColor = Color.Transparent
+                Dock = DockStyle.Fill,
+                Padding = new Padding(20, 10, 20, 20)
             };
             infoCard.Controls.Add(infoContent);
+            infoContent.BringToFront();
 
-            AddInfoLine(infoContent, "• Kullanıcı Şifresi: Raporlar bölümüne erişim için kullanılır.", 10);
-            AddInfoLine(infoContent, "• Super Admin Şifresi: Ayarlar modülüne erişim sağlar.", 56);
-            AddInfoLine(infoContent, "• Raporlar Şifresi: Raporlara alternatif erişim için kullanılır.", 102);
+            Label lblInfo1 = new Label
+            {
+                Text = "• Kullanıcı Şifresi: Raporlar bölümüne\n  erişim için kullanılır.",
+                Font = new Font("Segoe UI", 10),
+                ForeColor = TextDark,
+                Location = new Point(0, 10),
+                Size = new Size(300, 50)
+            };
+            infoContent.Controls.Add(lblInfo1);
+
+            Label lblInfo2 = new Label
+            {
+                Text = "• Super Admin Şifresi: Ayarlar modülüne\n  erişim için kullanılır.",
+                Font = new Font("Segoe UI", 10),
+                ForeColor = TextDark,
+                Location = new Point(0, 65),
+                Size = new Size(300, 50)
+            };
+            infoContent.Controls.Add(lblInfo2);
+
+            Label lblInfo3 = new Label
+            {
+                Text = "• Raporlar Şifresi: Alternatif olarak\n  raporlara erişim için kullanılabilir.",
+                Font = new Font("Segoe UI", 10),
+                ForeColor = TextDark,
+                Location = new Point(0, 120),
+                Size = new Size(300, 50)
+            };
+            infoContent.Controls.Add(lblInfo3);
 
             Label lblDefault = new Label
             {
-                Text      = "Varsayılan tüm şifreler: 123",
-                Font      = new Font("Segoe UI", 11, FontStyle.Bold),
-                ForeColor = Theme.Accent,
-                AutoSize  = true,
-                Location  = new Point(0, 166),
-                BackColor = Color.Transparent
+                Text = "📌 Varsayılan tüm şifreler: 123",
+                Font = new Font("Segoe UI", 11, FontStyle.Bold),
+                ForeColor = PrimaryBlue,
+                Location = new Point(0, 185),
+                AutoSize = true
             };
             infoContent.Controls.Add(lblDefault);
 
-            // ── TEHLİKELİ BÖLGE (alt, 2 sütun kaplayan) ───────────
-            Panel dangerCard = Theme.MakeCard("Tehlikeli Bölge", Theme.Danger);
-            layout.Controls.Add(dangerCard, 0, 1);
-            layout.SetColumnSpan(dangerCard, 2);
+            // ═══════════════════════════════════════════════════════════
+            // SİSTEM SIFIRLAMA KARTI
+            // ═══════════════════════════════════════════════════════════
+            Panel resetCard = CreateCard("⚠️ TEHLİKELİ BÖLGE", DangerRed);
+            layout.Controls.Add(resetCard, 0, 1);
+            layout.SetColumnSpan(resetCard, 2);
 
-            Panel dangerContent = new Panel
+            Panel resetContent = new Panel
             {
-                Dock      = DockStyle.Fill,
-                Padding   = new Padding(Theme.CardPad, 8, Theme.CardPad, Theme.CardPad),
-                BackColor = Color.Transparent
+                Dock = DockStyle.Fill,
+                Padding = new Padding(20, 10, 20, 20)
             };
-            dangerCard.Controls.Add(dangerContent);
+            resetCard.Controls.Add(resetContent);
+            resetContent.BringToFront();
 
-            Label lblWarn = new Label
+            Label lblResetWarning = new Label
             {
-                Text      = "⚠  Sistemi sıfırlamak TÜM verileri siler! (Ürünler, Satışlar, Giderler, Kategoriler)\n" +
-                            "Sadece kullanıcı tablosu korunacaktır. Bu işlem GERİ ALINAMAZ!",
-                Font      = Theme.Body,
-                ForeColor = Theme.Danger,
-                Location  = new Point(0, 6),
-                Size      = new Size(700, 42),
-                BackColor = Color.Transparent
+                Text = "⚠️ Sistemi sıfırlamak TÜM verileri silecektir! (Ürünler, Satışlar, Giderler, Kategoriler)\nSadece kullanıcı tablosu korunacaktır. Bu işlem GERİ ALINAMAZ!",
+                Font = new Font("Segoe UI", 10),
+                ForeColor = DangerRed,
+                Location = new Point(0, 5),
+                Size = new Size(600, 50)
             };
-            dangerContent.Controls.Add(lblWarn);
+            resetContent.Controls.Add(lblResetWarning);
 
-            Button btnReset = Theme.MakeButton("  TÜM SİSTEMİ SIFIRLA", Theme.Danger, Color.White, 240, 44, 10.5f);
-            btnReset.Location = new Point(0, 54);
-            btnReset.FlatAppearance.MouseOverBackColor = Color.FromArgb(185, 28, 28);
+            Button btnReset = new Button
+            {
+                Text = "🗑️ TÜM SİSTEMİ SIFIRLA",
+                Size = new Size(250, 50),
+                Location = new Point(0, 55),
+                BackColor = DangerRed,
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Segoe UI", 12, FontStyle.Bold),
+                Cursor = Cursors.Hand
+            };
+            btnReset.FlatAppearance.BorderSize = 0;
             btnReset.Click += BtnReset_Click;
-            dangerContent.Controls.Add(btnReset);
+            resetContent.Controls.Add(btnReset);
         }
 
-        // ════════════════════════════════════════════════════════════
-        //  YARDIMCI
-        // ════════════════════════════════════════════════════════════
-        private void AddPassField(Panel parent, string label, ref int y, out TextBox txt)
+        private Panel CreateCard(string title, Color accentColor)
         {
-            parent.Controls.Add(new Label
+            Panel card = new Panel
             {
-                Text      = label,
-                Location  = new Point(0, y),
-                AutoSize  = true,
-                Font      = new Font("Segoe UI", 9, FontStyle.Bold),
-                ForeColor = Theme.TextSecond,
-                BackColor = Color.Transparent
-            });
-            y += 22;
+                Dock = DockStyle.Fill,
+                Margin = new Padding(10),
+                BackColor = CardBg
+            };
 
-            txt = new TextBox
+            card.Paint += (s, e) =>
             {
-                Location    = new Point(0, y),
-                Size        = new Size(260, 34),
-                Font        = new Font("Segoe UI", 12),
-                BackColor   = Theme.Background,
-                ForeColor   = Theme.TextPrimary,
+                // Üst kenar accent
+                using (SolidBrush brush = new SolidBrush(accentColor))
+                {
+                    e.Graphics.FillRectangle(brush, 0, 0, card.Width, 4);
+                }
+                // Border
+                using (Pen pen = new Pen(BorderColor, 1))
+                {
+                    e.Graphics.DrawRectangle(pen, 0, 0, card.Width - 1, card.Height - 1);
+                }
+            };
+
+            Label lblTitle = new Label
+            {
+                Text = title,
+                Font = new Font("Segoe UI", 13, FontStyle.Bold),
+                ForeColor = accentColor,
+                Dock = DockStyle.Top,
+                Height = 45,
+                TextAlign = ContentAlignment.MiddleLeft,
+                Padding = new Padding(15, 5, 0, 0)
+            };
+            card.Controls.Add(lblTitle);
+
+            return card;
+        }
+
+        private TextBox CreatePasswordTextBox(int x, int y)
+        {
+            TextBox txt = new TextBox
+            {
+                Location = new Point(x, y),
+                Size = new Size(250, 35),
+                Font = new Font("Segoe UI", 12),
                 BorderStyle = BorderStyle.FixedSingle
             };
-            parent.Controls.Add(txt);
-            y += 46;
+            return txt;
         }
 
-        private void AddInfoLine(Panel parent, string text, int y)
-        {
-            parent.Controls.Add(new Label
-            {
-                Text      = text,
-                Font      = Theme.Body,
-                ForeColor = Theme.TextSecond,
-                Location  = new Point(0, y),
-                Size      = new Size(380, 40),
-                BackColor = Color.Transparent
-            });
-        }
-
-        // ════════════════════════════════════════════════════════════
-        //  VERİ
-        // ════════════════════════════════════════════════════════════
         private void LoadCurrentPasswords()
         {
-            _txtUserPassword.Text    = _settingsService.GetSetting(SettingsService.KEY_USER_PASSWORD);
-            _txtAdminPassword.Text   = _settingsService.GetSetting(SettingsService.KEY_ADMIN_PASSWORD);
+            _txtUserPassword.Text = _settingsService.GetSetting(SettingsService.KEY_USER_PASSWORD);
+            _txtAdminPassword.Text = _settingsService.GetSetting(SettingsService.KEY_ADMIN_PASSWORD);
             _txtReportsPassword.Text = _settingsService.GetSetting(SettingsService.KEY_REPORTS_PASSWORD);
         }
 
@@ -222,29 +320,36 @@ namespace MN_Barcode.WinForms
                 MessageBox.Show("Şifreler boş olamaz!", "Uyarı", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
+
             _settingsService.UpdateUserPassword(_txtUserPassword.Text.Trim());
             _settingsService.UpdateAdminPassword(_txtAdminPassword.Text.Trim());
             _settingsService.UpdateReportsPassword(_txtReportsPassword.Text.Trim());
+
             MessageBox.Show("Şifreler başarıyla güncellendi!", "Başarılı", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         private void BtnReset_Click(object sender, EventArgs e)
         {
-            if (MessageBox.Show(
-                    "⚠  DİKKAT!\n\nTüm veriler silinecektir:\n• Ürünler\n• Kategoriler\n• Satışlar\n• Giderler\n\n" +
-                    "Sadece kullanıcı tablosu korunacaktır.\n\nDevam etmek istiyor musunuz?",
-                    "Sistem Sıfırlama Onayı", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes)
+            var result = MessageBox.Show(
+                "⚠️ DİKKAT!\n\nTüm veriler silinecektir:\n• Ürünler\n• Kategoriler\n• Satışlar\n• Giderler\n\nSadece kullanıcı tablosu korunacaktır.\n\nDevam etmek istiyor musunuz?",
+                "Sistem Sıfırlama Onayı",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning);
+
+            if (result == DialogResult.Yes)
             {
-                if (MessageBox.Show(
-                        "🔴 SON UYARI!\n\nBu işlem GERİ ALINAMAZ!\n\nGerçekten devam etmek istiyor musunuz?",
-                        "Son Onay", MessageBoxButtons.YesNo, MessageBoxIcon.Stop) == DialogResult.Yes)
+                var result2 = MessageBox.Show(
+                    "🔴 SON UYARI!\n\nBu işlem GERİ ALINAMAZ!\n\nGerçekten devam etmek istiyor musunuz?",
+                    "Son Onay",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Stop);
+
+                if (result2 == DialogResult.Yes)
                 {
                     try
                     {
                         _settingsService.ResetSystem();
-                        MessageBox.Show(
-                            "Sistem başarıyla sıfırlandı!\nTüm şifreler varsayılan değere (123) döndürüldü.",
-                            "Başarılı", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        MessageBox.Show("Sistem başarıyla sıfırlandı!\nTüm şifreler varsayılan değere (123) döndürüldü.", "Başarılı", MessageBoxButtons.OK, MessageBoxIcon.Information);
                         LoadCurrentPasswords();
                     }
                     catch (Exception ex)
