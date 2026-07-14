@@ -1,161 +1,284 @@
 using System;
-using System.Drawing; // Renkler ve Çizim için şart
+using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
-using MN_Barcode.Business; // Servisler
-using MN_Barcode.Entities; // Kullanıcı Modeli
+using MN_Barcode.Business;
 
 namespace MN_Barcode.WinForms
 {
     public partial class LoginForm : Form
     {
-        // Ekrandaki elemanları burada tanımlıyoruz
-        private TextBox txtUsername;
-        private TextBox txtPassword;
-        private Button btnLogin;
-        private Button btnClose;
+        private TextBox _txtUsername;
+        private TextBox _txtPassword;
+        private Button  _btnLogin;
+
+        // Pencere sürükleme (FormBorderStyle = None)
+        [DllImport("user32.dll")] static extern bool ReleaseCapture();
+        [DllImport("user32.dll")] static extern int  SendMessage(IntPtr h, int m, int w, int l);
 
         public LoginForm()
         {
             InitializeComponent();
-            SetupModernUI(); // Kendi tasarım motorumuzu çalıştırıyoruz
+            BuildUI();
         }
 
-        private void SetupModernUI()
+        // ════════════════════════════════════════════════════════════
+        private void BuildUI()
         {
-            // 1. FORMUN ANA AYARLARI (Çerçevesiz Yapı)
             this.FormBorderStyle = FormBorderStyle.None;
-            this.StartPosition = FormStartPosition.CenterScreen;
-            this.Size = new Size(750, 450);
-            this.BackColor = Color.White;
+            this.StartPosition   = FormStartPosition.CenterScreen;
+            this.Size            = new Size(820, 500);
+            this.BackColor       = Theme.Background;
+            this.DoubleBuffered  = true;
 
-            // 2. SOL PANEL (LOGO ALANI)
-            Panel leftPanel = new Panel();
-            leftPanel.Dock = DockStyle.Left;
-            leftPanel.Width = 300;
-            leftPanel.BackColor = Color.FromArgb(44, 62, 80); // Koyu Lacivert
-            this.Controls.Add(leftPanel);
+            // ── SOL PANEL ──────────────────────────────────────────
+            Panel left = new Panel
+            {
+                Dock      = DockStyle.Left,
+                Width     = 340,
+                BackColor = Theme.Sidebar
+            };
+            left.MouseDown += (s, e) => { ReleaseCapture(); SendMessage(this.Handle, 0xA1, 0x2, 0); };
+            this.Controls.Add(left);
 
-            // Logo Yazısı
-            Label lblLogo = new Label();
-            lblLogo.Text = "MN\nPOS";
-            lblLogo.Font = new Font("Segoe UI", 48, FontStyle.Bold);
-            lblLogo.ForeColor = Color.White;
-            lblLogo.AutoSize = true;
-            lblLogo.Location = new Point(50, 100);
-            leftPanel.Controls.Add(lblLogo);
+            // Sol panel içi gradient çizim
+            left.Paint += (s, e) =>
+            {
+                var g = e.Graphics;
+                // İnce sağ kenar çizgisi
+                using (var p = new Pen(Theme.Border, 1))
+                    g.DrawLine(p, left.Width - 1, 0, left.Width - 1, left.Height);
 
-            Label lblSub = new Label();
-            lblSub.Text = "Hızlı Satış Sistemi";
-            lblSub.Font = new Font("Segoe UI", 12, FontStyle.Regular);
-            lblSub.ForeColor = Color.LightGray;
-            lblSub.AutoSize = true;
-            lblSub.Location = new Point(60, 200);
-            leftPanel.Controls.Add(lblSub);
+                // Logo arka aydınlatması
+                using (var path = new GraphicsPath())
+                {
+                    path.AddEllipse(80, 80, 180, 180);
+                    using (var br = new PathGradientBrush(path))
+                    {
+                        br.CenterColor    = Color.FromArgb(40, Theme.Accent);
+                        br.SurroundColors = new[] { Color.Transparent };
+                        g.FillEllipse(br, 80, 80, 180, 180);
+                    }
+                }
+            };
 
-            // 3. SAĞ PANEL (GİRİŞ FORMU)
+            // Logo metni
+            Label lblLogo = new Label
+            {
+                Text      = "MN",
+                Font      = new Font("Segoe UI", 56, FontStyle.Bold),
+                ForeColor = Theme.Accent,
+                AutoSize  = true,
+                BackColor = Color.Transparent
+            };
+            left.Controls.Add(lblLogo);
+            lblLogo.Location = new Point((340 - lblLogo.PreferredWidth) / 2, 110);
+
+            Label lblSub = new Label
+            {
+                Text      = "POS",
+                Font      = new Font("Segoe UI", 22, FontStyle.Bold),
+                ForeColor = Theme.TextPrimary,
+                AutoSize  = true,
+                BackColor = Color.Transparent
+            };
+            left.Controls.Add(lblSub);
+            lblSub.Location = new Point((340 - lblSub.PreferredWidth) / 2, 186);
+
+            Label lblTagline = new Label
+            {
+                Text      = "Hızlı Satış Sistemi",
+                Font      = Theme.Body,
+                ForeColor = Theme.TextSecond,
+                AutoSize  = true,
+                BackColor = Color.Transparent
+            };
+            left.Controls.Add(lblTagline);
+            lblTagline.Location = new Point((340 - lblTagline.PreferredWidth) / 2, 230);
+
+            // Versiyon
+            Label lblVer = new Label
+            {
+                Text      = "v2.0",
+                Font      = Theme.Caption,
+                ForeColor = Theme.TextMuted,
+                AutoSize  = true,
+                BackColor = Color.Transparent,
+                Location  = new Point(16, 460)
+            };
+            left.Controls.Add(lblVer);
+
+            // ── SAĞ PANEL ──────────────────────────────────────────
+            Panel right = new Panel
+            {
+                Dock      = DockStyle.Fill,
+                BackColor = Theme.Background,
+                Padding   = new Padding(60, 50, 60, 0)
+            };
+            right.MouseDown += (s, e) => { ReleaseCapture(); SendMessage(this.Handle, 0xA1, 0x2, 0); };
+            this.Controls.Add(right);
+
+            // Kapatma butonu
+            Button btnClose = new Button
+            {
+                Text      = "✕",
+                Size      = new Size(36, 36),
+                Location  = new Point(820 - 340 - 46, 12),
+                FlatStyle = FlatStyle.Flat,
+                ForeColor = Theme.TextMuted,
+                Font      = new Font("Segoe UI", 12),
+                Cursor    = Cursors.Hand,
+                TabStop   = false
+            };
+            btnClose.FlatAppearance.BorderSize           = 0;
+            btnClose.FlatAppearance.MouseOverBackColor   = Theme.Danger;
+            btnClose.Click      += (s, e) => Application.Exit();
+            btnClose.MouseEnter += (s, e) => btnClose.ForeColor = Color.White;
+            btnClose.MouseLeave += (s, e) => btnClose.ForeColor = Theme.TextMuted;
+            right.Controls.Add(btnClose);
+
             // Başlık
-            Label lblTitle = new Label();
-            lblTitle.Text = "GİRİŞ YAP";
-            lblTitle.Font = new Font("Segoe UI", 20, FontStyle.Bold);
-            lblTitle.ForeColor = Color.FromArgb(44, 62, 80);
-            lblTitle.AutoSize = true;
-            lblTitle.Location = new Point(350, 50);
-            this.Controls.Add(lblTitle);
+            Label lblTitle = new Label
+            {
+                Text      = "Hoş Geldiniz",
+                Font      = Theme.H1,
+                ForeColor = Theme.TextPrimary,
+                AutoSize  = true,
+                Location  = new Point(60, 60)
+            };
+            right.Controls.Add(lblTitle);
 
-            // Kullanıcı Adı
-            Label lblUser = new Label();
-            lblUser.Text = "Kullanıcı Adı";
-            lblUser.Location = new Point(350, 120);
-            lblUser.Font = new Font("Segoe UI", 10, FontStyle.Bold);
-            lblUser.ForeColor = Color.Gray;
-            this.Controls.Add(lblUser);
+            Label lblDesc = new Label
+            {
+                Text      = "Devam etmek için giriş yapın",
+                Font      = Theme.Body,
+                ForeColor = Theme.TextSecond,
+                AutoSize  = true,
+                Location  = new Point(60, 96)
+            };
+            right.Controls.Add(lblDesc);
 
-            txtUsername = new TextBox();
-            txtUsername.Location = new Point(350, 145);
-            txtUsername.Size = new Size(300, 30);
-            txtUsername.Font = new Font("Segoe UI", 12);
-            txtUsername.Text = "";
-            this.Controls.Add(txtUsername);
+            // ── Kullanıcı Adı ──────────────────────────────────────
+            Label lblUser = new Label
+            {
+                Text      = "KULLANICI ADI",
+                Font      = new Font("Segoe UI", 8, FontStyle.Bold),
+                ForeColor = Theme.TextSecond,
+                AutoSize  = true,
+                Location  = new Point(60, 142)
+            };
+            right.Controls.Add(lblUser);
 
-            // Şifre
-            Label lblPass = new Label();
-            lblPass.Text = "Şifre";
-            lblPass.Location = new Point(350, 200);
-            lblPass.Font = new Font("Segoe UI", 10, FontStyle.Bold);
-            lblPass.ForeColor = Color.Gray;
-            this.Controls.Add(lblPass);
+            _txtUsername = new TextBox
+            {
+                Location    = new Point(60, 162),
+                Size        = new Size(320, 36),
+                Font        = new Font("Segoe UI", 12),
+                BackColor   = Theme.Surface,
+                ForeColor   = Theme.TextPrimary,
+                BorderStyle = BorderStyle.FixedSingle
+            };
+            right.Controls.Add(_txtUsername);
 
-            txtPassword = new TextBox();
-            txtPassword.Location = new Point(350, 225);
-            txtPassword.Size = new Size(300, 30);
-            txtPassword.Font = new Font("Segoe UI", 12);
-            txtPassword.PasswordChar = '●'; // Şifre gizlensin
-            txtPassword.Text = "";
-            this.Controls.Add(txtPassword);
+            // ── Şifre ──────────────────────────────────────────────
+            Label lblPass = new Label
+            {
+                Text      = "ŞİFRE",
+                Font      = new Font("Segoe UI", 8, FontStyle.Bold),
+                ForeColor = Theme.TextSecond,
+                AutoSize  = true,
+                Location  = new Point(60, 218)
+            };
+            right.Controls.Add(lblPass);
 
-            // Giriş Butonu
-            btnLogin = new Button();
-            btnLogin.Text = "SİSTEME GİRİŞ";
-            btnLogin.Location = new Point(350, 300);
-            btnLogin.Size = new Size(300, 50);
-            btnLogin.BackColor = Color.FromArgb(52, 152, 219); // Mavi
-            btnLogin.ForeColor = Color.White;
-            btnLogin.FlatStyle = FlatStyle.Flat;
-            btnLogin.FlatAppearance.BorderSize = 0;
-            btnLogin.Font = new Font("Segoe UI", 12, FontStyle.Bold);
-            btnLogin.Cursor = Cursors.Hand;
-            btnLogin.Click += BtnLogin_Click; // Tıklama olayını bağlıyoruz
-            this.Controls.Add(btnLogin);
+            _txtPassword = new TextBox
+            {
+                Location      = new Point(60, 238),
+                Size          = new Size(320, 36),
+                Font          = new Font("Segoe UI", 12),
+                BackColor     = Theme.Surface,
+                ForeColor     = Theme.TextPrimary,
+                BorderStyle   = BorderStyle.FixedSingle,
+                PasswordChar  = '●'
+            };
+            _txtPassword.KeyDown += (s, e) => { if (e.KeyCode == Keys.Enter) BtnLogin_Click(null, null); };
+            right.Controls.Add(_txtPassword);
 
-            // Kapatma Butonu (Sağ Üstteki X)
-            btnClose = new Button();
-            btnClose.Text = "X";
-            btnClose.Location = new Point(710, 10);
-            btnClose.Size = new Size(30, 30);
-            btnClose.BackColor = Color.White;
-            btnClose.ForeColor = Color.Red;
-            btnClose.FlatStyle = FlatStyle.Flat;
-            btnClose.FlatAppearance.BorderSize = 0;
-            btnClose.Font = new Font("Arial", 12, FontStyle.Bold);
-            btnClose.Cursor = Cursors.Hand;
-            btnClose.Click += (s, e) => Application.Exit(); // Basınca programı kapatır
-            this.Controls.Add(btnClose);
+            // ── Giriş Butonu ───────────────────────────────────────
+            _btnLogin = new Button
+            {
+                Text      = "GİRİŞ YAP",
+                Location  = new Point(60, 304),
+                Size      = new Size(320, 48),
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Theme.Accent,
+                ForeColor = Color.White,
+                Font      = new Font("Segoe UI", 12, FontStyle.Bold),
+                Cursor    = Cursors.Hand,
+                TabStop   = false
+            };
+            _btnLogin.FlatAppearance.BorderSize         = 0;
+            _btnLogin.FlatAppearance.MouseOverBackColor = Theme.AccentHover;
+            _btnLogin.Click      += BtnLogin_Click;
+            _btnLogin.MouseEnter += (s, e) => _btnLogin.BackColor = Theme.AccentHover;
+            _btnLogin.MouseLeave += (s, e) => _btnLogin.BackColor = Theme.Accent;
+            right.Controls.Add(_btnLogin);
+
+            // ── Alt bilgi ──────────────────────────────────────────
+            Label lblInfo = new Label
+            {
+                Text      = "MN-Barcode POS Sistemi  •  © 2024",
+                Font      = Theme.Caption,
+                ForeColor = Theme.TextMuted,
+                AutoSize  = true,
+                Location  = new Point(60, 380)
+            };
+            right.Controls.Add(lblInfo);
+
+            // Sağ panel üste gelsin
+            right.BringToFront();
+
+            this.AcceptButton = _btnLogin;
         }
 
-        // GİRİŞ BUTONUNA BASILINCA ÇALIŞACAK KOD
+        // ════════════════════════════════════════════════════════════
         private void BtnLogin_Click(object sender, EventArgs e)
         {
+            _btnLogin.Enabled = false;
+            _btnLogin.Text    = "Giriş yapılıyor...";
             try
             {
-                UserService userService = new UserService();
-                var user = userService.Login(txtUsername.Text, txtPassword.Text);
+                var userService = new UserService();
+                var user        = userService.Login(_txtUsername.Text, _txtPassword.Text);
 
                 if (user != null)
                 {
-                    // 1. Login formunu gizle
                     this.Hide();
-
-                    // 2. Ana formu aç (Kullanıcıyı içeri gönderiyoruz)
-                    MainForm main = new MainForm(user);
-                    main.ShowDialog(); // Ana form kapanana kadar bekle
-
-                    // 3. Ana form kapanınca uygulamayı komple kapat
+                    var main = new MainForm(user);
+                    main.ShowDialog();
                     Application.Exit();
                 }
                 else
                 {
-                    MessageBox.Show("Hatalı Kullanıcı Adı veya Şifre!", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    MessageBox.Show("Hatalı Kullanıcı Adı veya Şifre!",
+                        "Giriş Hatası", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    _txtPassword.Clear();
+                    _txtPassword.Focus();
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Hata: " + ex.Message);
+                MessageBox.Show("Hata: " + ex.Message, "Sistem Hatası",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                _btnLogin.Enabled = true;
+                _btnLogin.Text    = "GİRİŞ YAP";
             }
         }
 
-        private void LoginForm_Load(object sender, EventArgs e)
-        {
-
-        }
+        private void LoginForm_Load(object sender, EventArgs e) { }
     }
 }
