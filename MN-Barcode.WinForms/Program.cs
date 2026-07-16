@@ -1,5 +1,8 @@
 using System;
+using System.Linq;
 using System.Windows.Forms;
+using MN_Barcode.DataAccess;
+using MN_Barcode.Entities;
 
 namespace MN_Barcode.WinForms
 {
@@ -11,7 +14,23 @@ namespace MN_Barcode.WinForms
             Application.SetHighDpiMode(HighDpiMode.SystemAware);
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-            Application.Run(new MainForm(null)); // Login geçici olarak devre dışı
+            InitializeDatabase();
+            Application.Run(new LoginForm());
+        }
+
+        private static void InitializeDatabase()
+        {
+            try
+            {
+                using var context = new BarcodeContext();
+                context.Database.EnsureCreated();
+                if (!context.Users.Any())
+                {
+                    context.Users.Add(new AppUser { Username = "admin", Password = "admin123", Role = UserRole.Admin });
+                    context.SaveChanges();
+                }
+            }
+            catch { }
         }
     }
 }

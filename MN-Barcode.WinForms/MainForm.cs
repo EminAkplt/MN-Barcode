@@ -242,7 +242,7 @@ namespace MN_Barcode.WinForms
             _menuContainer.Controls.Add(CreateAccordionGroup("💰  Satış Yönetimi", new string[] { "Satış Geçmişi", "İade İşlemleri" }));
             _menuContainer.Controls.Add(CreateAccordionGroup("📦  Stok Yönetimi", new string[] { "Ürün Yönetimi", "Stok Dashboard" }));
             _menuContainer.Controls.Add(CreateSingleMenuButton("📈  Raporlar", (s, e) => OpenReportsWithPassword()));
-            _menuContainer.Controls.Add(CreateSingleMenuButton("💸  Giderler", (s, e) => ShowForm(new ExpenseManagerForm())));
+            _menuContainer.Controls.Add(CreateSingleMenuButton("💸  Giderler", (s, e) => ShowFormCached("ExpenseManager", () => new ExpenseManagerForm())));
             _menuContainer.Controls.Add(CreateSingleMenuButton("⚙️  Ayarlar", (s, e) => OpenSettingsWithPassword()));
         }
 
@@ -257,7 +257,7 @@ namespace MN_Barcode.WinForms
                         settingsService.ValidateUserPassword(dialog.EnteredPassword) ||
                         settingsService.ValidateAdminPassword(dialog.EnteredPassword))
                     {
-                        ShowForm(new ReportsForm());
+                        ShowFormCached("ReportsForm", () => new ReportsForm());
                     }
                     else
                     {
@@ -276,7 +276,7 @@ namespace MN_Barcode.WinForms
                 {
                     if (settingsService.ValidateAdminPassword(dialog.EnteredPassword))
                     {
-                        ShowForm(new SettingsForm());
+                        ShowFormCached("SettingsForm", () => new SettingsForm());
                     }
                     else
                     {
@@ -347,10 +347,10 @@ namespace MN_Barcode.WinForms
                 subBtn.Click += (s, e) =>
                 {
                     SetActiveButton(subBtn);
-                    if (item == "Ürün Yönetimi") ShowForm(new ProductForm());
-                    else if (item == "Stok Dashboard") ShowForm(new StockDashboardForm());
-                    else if (item == "Satış Geçmişi") ShowForm(new SalesHistoryForm());
-                    else if (item == "İade İşlemleri") ShowForm(new ReturnsForm());
+                    if (item == "Ürün Yönetimi") ShowFormCached("ProductForm", () => new ProductForm());
+                    else if (item == "Stok Dashboard") ShowFormCached("StockDashboard", () => new StockDashboardForm());
+                    else if (item == "Satış Geçmişi") ShowFormCached("SalesHistory", () => new SalesHistoryForm());
+                    else if (item == "İade İşlemleri") ShowFormCached("ReturnsForm", () => new ReturnsForm());
                     else ShowContent(item);
                 };
 
