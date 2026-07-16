@@ -240,8 +240,9 @@ namespace MN_Barcode.WinForms
             _menuContainer.Controls.Add(CreateSingleMenuButton("📊  Ana Sayfa", (s, e) => ShowFormCached("HomeDashboard", () => new HomeDashboardForm())));
             _menuContainer.Controls.Add(CreateSingleMenuButton("⚡  Hızlı Satış", (s, e) => ShowFormCached("SalesForm", () => new SalesForm())));
             _menuContainer.Controls.Add(CreateAccordionGroup("💰  Satış Yönetimi", new string[] { "Satış Geçmişi", "İade İşlemleri" }));
-            _menuContainer.Controls.Add(CreateAccordionGroup("📦  Stok Yönetimi", new string[] { "Ürün Yönetimi", "Stok Dashboard" }));
-            _menuContainer.Controls.Add(CreateSingleMenuButton("📈  Raporlar", (s, e) => OpenReportsWithPassword()));
+            _menuContainer.Controls.Add(CreateAccordionGroup("📦  Stok Yönetimi", new string[] { "Ürün Yönetimi", "Stok Dashboard", "Barkod & Etiket" }));
+            // Raporlar geçici olarak devre dışı — ileride tek satırı geri açarak aktifleştir.
+            // _menuContainer.Controls.Add(CreateSingleMenuButton("📈  Raporlar", (s, e) => OpenReportsWithPassword()));
             _menuContainer.Controls.Add(CreateSingleMenuButton("💸  Giderler", (s, e) => ShowFormCached("ExpenseManager", () => new ExpenseManagerForm())));
             _menuContainer.Controls.Add(CreateSingleMenuButton("⚙️  Ayarlar", (s, e) => OpenSettingsWithPassword()));
         }
@@ -349,6 +350,7 @@ namespace MN_Barcode.WinForms
                     SetActiveButton(subBtn);
                     if (item == "Ürün Yönetimi") ShowFormCached("ProductForm", () => new ProductForm());
                     else if (item == "Stok Dashboard") ShowFormCached("StockDashboard", () => new StockDashboardForm());
+                    else if (item == "Barkod & Etiket") ShowFormCached("BarcodeLabel", () => new BarcodeLabelForm());
                     else if (item == "Satış Geçmişi") ShowFormCached("SalesHistory", () => new SalesHistoryForm());
                     else if (item == "İade İşlemleri") ShowFormCached("ReturnsForm", () => new ReturnsForm());
                     else ShowContent(item);
