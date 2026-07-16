@@ -29,6 +29,14 @@ namespace MN_Barcode.WinForms
                     context.Users.Add(new AppUser { Username = "admin", Password = "admin123", Role = UserRole.Admin });
                     context.SaveChanges();
                 }
+
+                // Stok hiçbir zaman eksi olamaz: geçmişte eksiye düşmüş kayıtları 0'a çek.
+                var negatives = context.Products.Where(p => p.StockQuantity < 0).ToList();
+                if (negatives.Count > 0)
+                {
+                    foreach (var p in negatives) p.StockQuantity = 0;
+                    context.SaveChanges();
+                }
             }
             catch { }
         }
