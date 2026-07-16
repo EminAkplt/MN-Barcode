@@ -10,6 +10,21 @@ namespace MN_Barcode.WinForms
 {
     public partial class ProductForm : Form
     {
+        // ── Klasik/açık palet (Satış Geçmişi & İade sayfalarıyla uyumlu) ──
+        private static readonly Color ColBg       = Color.FromArgb(245, 247, 250);
+        private static readonly Color ColSurface  = Color.White;
+        private static readonly Color ColBorder   = Color.FromArgb(214, 221, 230);
+        private static readonly Color ColText      = Color.FromArgb(30, 41, 59);
+        private static readonly Color ColStrong   = Color.FromArgb(15, 23, 42);
+        private static readonly Color ColMuted    = Color.FromArgb(100, 116, 139);
+        private static readonly Color ColHeaderBg = Color.FromArgb(241, 245, 249);
+        private static readonly Color ColBlue      = Color.FromArgb(37, 99, 235);
+        private static readonly Color ColBlueDark = Color.FromArgb(29, 78, 188);
+        private static readonly Color ColBlueSoft = Color.FromArgb(232, 240, 254);
+        private static readonly Color ColGreen     = Color.FromArgb(22, 163, 74);
+        private static readonly Color ColAmber     = Color.FromArgb(217, 119, 6);
+        private static readonly Color ColRed       = Color.FromArgb(220, 38, 38);
+
         private ProductService _productService;
         private CategoryService _categoryService;
 
@@ -34,7 +49,7 @@ namespace MN_Barcode.WinForms
             _categoryService = new CategoryService();
             this.DoubleBuffered = true;
             InitUI();
-            
+
             // Form gösterildikten SONRA veri yükle (performans için)
             this.Shown += (s, e) =>
             {
@@ -46,171 +61,228 @@ namespace MN_Barcode.WinForms
 
         private void InitUI()
         {
-            this.BackColor = Color.White;
+            this.BackColor = ColBg;
             this.Dock = DockStyle.Fill;
             this.FormBorderStyle = FormBorderStyle.None;
 
-            // ═══════════════════════════════════════════════════════════
-            // HEADER
-            // ═══════════════════════════════════════════════════════════
-            Panel header = new Panel
-            {
-                Dock = DockStyle.Top,
-                Height = 70,
-                BackColor = Color.FromArgb(45, 55, 72)
-            };
-            this.Controls.Add(header);
-
-            // ÜRÜNLER TAB
-            _tabProducts = new Button
-            {
-                Text = "📦 ÜRÜNLER",
-                Size = new Size(160, 50),
-                Location = new Point(30, 10),
-                BackColor = Color.FromArgb(72, 187, 120),
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                Font = new Font("Segoe UI", 13, FontStyle.Bold),
-                Cursor = Cursors.Hand
-            };
-            _tabProducts.FlatAppearance.BorderSize = 0;
-            _tabProducts.Click += (s, e) => SwitchTab(true);
-            header.Controls.Add(_tabProducts);
-
-            // KATEGORİLER TAB
-            _tabCategories = new Button
-            {
-                Text = "📂 KATEGORİLER",
-                Size = new Size(180, 50),
-                Location = new Point(200, 10),
-                BackColor = Color.FromArgb(113, 128, 150),
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                Font = new Font("Segoe UI", 13, FontStyle.Bold),
-                Cursor = Cursors.Hand
-            };
-            _tabCategories.FlatAppearance.BorderSize = 0;
-            _tabCategories.Click += (s, e) => SwitchTab(false);
-            header.Controls.Add(_tabCategories);
-
-            // YENİ EKLE BUTONU
-            _btnAction = new Button
-            {
-                Text = "+ YENİ ÜRÜN",
-                Size = new Size(160, 45),
-                Location = new Point(header.Width - 200, 12),
-                Anchor = AnchorStyles.Right | AnchorStyles.Top,
-                BackColor = Color.FromArgb(56, 161, 105),
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                Font = new Font("Segoe UI", 12, FontStyle.Bold),
-                Cursor = Cursors.Hand
-            };
-            _btnAction.FlatAppearance.BorderSize = 0;
-            _btnAction.Click += BtnAction_Click;
-            header.Controls.Add(_btnAction);
-
-            // ═══════════════════════════════════════════════════════════
-            // ÜRÜNLER PANELİ
-            // ═══════════════════════════════════════════════════════════
-            _productPanel = new Panel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(247, 250, 252) };
+            // ═══════════════ ÜRÜNLER PANELİ (önce eklenir) ═══════════════
+            _productPanel = new Panel { Dock = DockStyle.Fill, BackColor = ColBg };
             this.Controls.Add(_productPanel);
 
-            // FİLTRE ALANI
-            Panel filterBar = new Panel
-            {
-                Dock = DockStyle.Top,
-                Height = 80,
-                BackColor = Color.White,
-                Padding = new Padding(30, 20, 30, 20)
-            };
-            _productPanel.Controls.Add(filterBar);
-
-            // ARAMA LABEL
-            Label lblSearch = new Label
-            {
-                Text = "🔍 Ara:",
-                Location = new Point(30, 28),
-                AutoSize = true,
-                Font = new Font("Segoe UI", 12, FontStyle.Bold),
-                ForeColor = Color.FromArgb(45, 55, 72)
-            };
-            filterBar.Controls.Add(lblSearch);
-
-            // ARAMA KUTUSU
-            _txtSearch = new TextBox
-            {
-                Location = new Point(110, 22),
-                Size = new Size(350, 38),
-                Font = new Font("Segoe UI", 13),
-                BorderStyle = BorderStyle.FixedSingle
-            };
-            _txtSearch.TextChanged += (s, e) => LoadProducts();
-            filterBar.Controls.Add(_txtSearch);
-
-            // KATEGORİ LABEL
-            Label lblCat = new Label
-            {
-                Text = "Kategori:",
-                Location = new Point(490, 28),
-                AutoSize = true,
-                Font = new Font("Segoe UI", 12, FontStyle.Bold),
-                ForeColor = Color.FromArgb(45, 55, 72)
-            };
-            filterBar.Controls.Add(lblCat);
-
-            // KATEGORİ DROPDOWN
-            _cmbCategory = new ComboBox
-            {
-                Location = new Point(580, 22),
-                Size = new Size(220, 38),
-                Font = new Font("Segoe UI", 12),
-                DropDownStyle = ComboBoxStyle.DropDownList
-            };
-            _cmbCategory.SelectedIndexChanged += (s, e) => LoadProducts();
-            filterBar.Controls.Add(_cmbCategory);
-
-            // SAYAÇ
-            _lblCount = new Label
-            {
-                Location = new Point(830, 28),
-                AutoSize = true,
-                Font = new Font("Segoe UI", 12, FontStyle.Bold),
-                ForeColor = Color.FromArgb(56, 161, 105)
-            };
-            filterBar.Controls.Add(_lblCount);
-
-            // ÜRÜN GRİD
-            Panel gridContainer = new Panel
-            {
-                Dock = DockStyle.Fill,
-                BackColor = Color.White,
-                Padding = new Padding(20)
-            };
+            Panel gridContainer = new Panel { Dock = DockStyle.Fill, BackColor = ColBg, Padding = new Padding(16, 12, 16, 16) };
             _productPanel.Controls.Add(gridContainer);
-            gridContainer.BringToFront();
 
             _gridProducts = CreateProductGrid();
             gridContainer.Controls.Add(_gridProducts);
 
-            // ═══════════════════════════════════════════════════════════
-            // KATEGORİLER PANELİ
-            // ═══════════════════════════════════════════════════════════
-            _categoryPanel = new Panel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(247, 250, 252), Visible = false };
+            _productPanel.Controls.Add(BuildFilterBar());   // Dock.Top
+
+            // ═══════════════ KATEGORİLER PANELİ ═══════════════
+            _categoryPanel = new Panel { Dock = DockStyle.Fill, BackColor = ColBg, Visible = false };
             this.Controls.Add(_categoryPanel);
 
-            Panel catGridContainer = new Panel
-            {
-                Dock = DockStyle.Fill,
-                BackColor = Color.White,
-                Padding = new Padding(20)
-            };
+            Panel catGridContainer = new Panel { Dock = DockStyle.Fill, BackColor = ColBg, Padding = new Padding(16, 12, 16, 16) };
             _categoryPanel.Controls.Add(catGridContainer);
 
             _gridCategories = CreateCategoryGrid();
             catGridContainer.Controls.Add(_gridCategories);
 
+            // ═══════════════ HEADER (en son eklenir → en üstte) ═══════════════
+            this.Controls.Add(BuildHeader());
+
             _productPanel.BringToFront();
+        }
+
+        // Başlık + eylem butonu + sekmeler
+        private Panel BuildHeader()
+        {
+            Panel header = new Panel { Dock = DockStyle.Top, Height = 116, BackColor = ColSurface };
+            header.Paint += (s, e) =>
+            {
+                using var pen = new Pen(ColBorder, 1);
+                e.Graphics.DrawLine(pen, 0, header.Height - 1, header.Width, header.Height - 1);
+            };
+
+            // Sekme satırı (altta)
+            header.Controls.Add(BuildTabRow());
+            // Başlık + eylem satırı (üstte)
+            header.Controls.Add(BuildTitleRow());
+
+            return header;
+        }
+
+        private TableLayoutPanel BuildTitleRow()
+        {
+            TableLayoutPanel row = new TableLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                Height = 62,
+                ColumnCount = 2,
+                RowCount = 1,
+                BackColor = ColSurface,
+                Padding = new Padding(24, 14, 24, 0)
+            };
+            row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            row.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+
+            Label title = new Label
+            {
+                Text = "Ürün Yönetimi",
+                Font = new Font("Segoe UI", 17, FontStyle.Bold),
+                ForeColor = ColStrong,
+                AutoSize = true,
+                Anchor = AnchorStyles.Left
+            };
+            row.Controls.Add(title, 0, 0);
+
+            _btnAction = new Button
+            {
+                Text = "+  Yeni Ürün",
+                Size = new Size(150, 38),
+                BackColor = ColBlue,
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Segoe UI", 10.5f, FontStyle.Bold),
+                Cursor = Cursors.Hand,
+                Anchor = AnchorStyles.Right,
+                Margin = new Padding(0, 2, 0, 0)
+            };
+            _btnAction.FlatAppearance.BorderSize = 0;
+            _btnAction.FlatAppearance.MouseOverBackColor = ColBlueDark;
+            _btnAction.Click += BtnAction_Click;
+            row.Controls.Add(_btnAction, 1, 0);
+
+            return row;
+        }
+
+        private FlowLayoutPanel BuildTabRow()
+        {
+            FlowLayoutPanel flow = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                WrapContents = false,
+                BackColor = ColSurface,
+                Padding = new Padding(24, 6, 24, 0)
+            };
+
+            _tabProducts = MakeTab("Ürünler");
+            _tabProducts.Click += (s, e) => SwitchTab(true);
+            flow.Controls.Add(_tabProducts);
+
+            _tabCategories = MakeTab("Kategoriler");
+            _tabCategories.Click += (s, e) => SwitchTab(false);
+            flow.Controls.Add(_tabCategories);
+
+            ApplyTabStyle();
+            return flow;
+        }
+
+        private Button MakeTab(string text) => new Button
+        {
+            Text = text,
+            Size = new Size(130, 36),
+            FlatStyle = FlatStyle.Flat,
+            Font = new Font("Segoe UI", 10.5f, FontStyle.Bold),
+            Cursor = Cursors.Hand,
+            Margin = new Padding(0, 0, 8, 0),
+            TextAlign = ContentAlignment.MiddleCenter
+        };
+
+        private void ApplyTabStyle()
+        {
+            StyleTab(_tabProducts, _isProductsTab);
+            StyleTab(_tabCategories, !_isProductsTab);
+        }
+
+        private void StyleTab(Button tab, bool active)
+        {
+            tab.FlatAppearance.BorderSize = 0;
+            if (active)
+            {
+                tab.BackColor = ColBlueSoft;
+                tab.ForeColor = ColBlue;
+            }
+            else
+            {
+                tab.BackColor = ColSurface;
+                tab.ForeColor = ColMuted;
+                tab.FlatAppearance.MouseOverBackColor = ColHeaderBg;
+            }
+        }
+
+        // Ürünler sekmesi filtre çubuğu
+        private Panel BuildFilterBar()
+        {
+            Panel filterBar = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 66,
+                BackColor = ColSurface
+            };
+            filterBar.Paint += (s, e) =>
+            {
+                using var pen = new Pen(ColBorder, 1);
+                e.Graphics.DrawLine(pen, 0, filterBar.Height - 1, filterBar.Width, filterBar.Height - 1);
+            };
+
+            FlowLayoutPanel flow = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                WrapContents = false,
+                BackColor = ColSurface,
+                Padding = new Padding(24, 14, 24, 0)
+            };
+            filterBar.Controls.Add(flow);
+
+            flow.Controls.Add(new Label
+            {
+                Text = "Ara:",
+                Font = new Font("Segoe UI", 11),
+                ForeColor = ColMuted,
+                AutoSize = true,
+                Margin = new Padding(0, 9, 10, 0)
+            });
+
+            _txtSearch = new TextBox
+            {
+                Width = 320,
+                Font = new Font("Segoe UI", 12),
+                BorderStyle = BorderStyle.FixedSingle,
+                Margin = new Padding(0, 4, 0, 0)
+            };
+            _txtSearch.TextChanged += (s, e) => LoadProducts();
+            flow.Controls.Add(_txtSearch);
+
+            flow.Controls.Add(new Label
+            {
+                Text = "Kategori:",
+                Font = new Font("Segoe UI", 11),
+                ForeColor = ColMuted,
+                AutoSize = true,
+                Margin = new Padding(20, 9, 10, 0)
+            });
+
+            _cmbCategory = new ComboBox
+            {
+                Width = 200,
+                Font = new Font("Segoe UI", 11),
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                FlatStyle = FlatStyle.Flat,
+                Margin = new Padding(0, 5, 0, 0)
+            };
+            _cmbCategory.SelectedIndexChanged += (s, e) => LoadProducts();
+            flow.Controls.Add(_cmbCategory);
+
+            _lblCount = new Label
+            {
+                Font = new Font("Segoe UI", 11, FontStyle.Bold),
+                ForeColor = ColGreen,
+                AutoSize = true,
+                Margin = new Padding(20, 9, 0, 0)
+            };
+            flow.Controls.Add(_lblCount);
+
+            return filterBar;
         }
 
         private DataGridView CreateProductGrid()
@@ -218,57 +290,71 @@ namespace MN_Barcode.WinForms
             DataGridView grid = new DataGridView
             {
                 Dock = DockStyle.Fill,
-                BackgroundColor = Color.White,
+                BackgroundColor = ColSurface,
                 BorderStyle = BorderStyle.None,
                 RowHeadersVisible = false,
                 AllowUserToAddRows = false,
+                AllowUserToResizeRows = false,
+                AllowUserToOrderColumns = false,
+                ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing,
                 AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
                 SelectionMode = DataGridViewSelectionMode.FullRowSelect,
                 MultiSelect = false,
-                ReadOnly = true
+                ReadOnly = true,
+                CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal,
+                GridColor = Color.FromArgb(233, 238, 244)
             };
-            grid.RowTemplate.Height = 50;
-            grid.DefaultCellStyle.Font = new Font("Segoe UI", 11);
-            grid.DefaultCellStyle.ForeColor = Color.FromArgb(45, 55, 72);
-            grid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(237, 242, 247);
-            grid.DefaultCellStyle.SelectionForeColor = Color.FromArgb(45, 55, 72);
-            grid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(247, 250, 252);
+            grid.RowTemplate.Height = 46;
+            grid.DefaultCellStyle.Font = new Font("Segoe UI", 10.5f);
+            grid.DefaultCellStyle.ForeColor = ColText;
+            grid.DefaultCellStyle.BackColor = ColSurface;
+            grid.DefaultCellStyle.SelectionBackColor = ColBlueSoft;
+            grid.DefaultCellStyle.SelectionForeColor = ColStrong;
+            grid.DefaultCellStyle.Padding = new Padding(8, 0, 8, 0);
+            grid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(250, 251, 253);
 
-            grid.ColumnHeadersHeight = 55;
-            grid.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 11, FontStyle.Bold);
-            grid.ColumnHeadersDefaultCellStyle.ForeColor = Color.FromArgb(113, 128, 150);
-            grid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(237, 242, 247);
+            grid.ColumnHeadersHeight = 44;
+            grid.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
+            grid.ColumnHeadersDefaultCellStyle.ForeColor = ColMuted;
+            grid.ColumnHeadersDefaultCellStyle.BackColor = ColHeaderBg;
+            grid.ColumnHeadersDefaultCellStyle.Padding = new Padding(8, 0, 8, 0);
             grid.ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.None;
             grid.EnableHeadersVisualStyles = false;
-            grid.GridColor = Color.FromArgb(226, 232, 240);
 
             grid.Columns.Add("Id", "ID"); grid.Columns["Id"].Visible = false;
-            grid.Columns.Add("Barcode", "BARKOD"); grid.Columns["Barcode"].FillWeight = 80;
-            grid.Columns.Add("Name", "ÜRÜN ADI"); grid.Columns["Name"].FillWeight = 150;
-            grid.Columns.Add("Category", "KATEGORİ"); grid.Columns["Category"].FillWeight = 80;
-            grid.Columns.Add("BuyPrice", "ALIŞ"); grid.Columns["BuyPrice"].FillWeight = 60;
-            grid.Columns.Add("SellPrice", "SATIŞ"); grid.Columns["SellPrice"].FillWeight = 60;
-            grid.Columns.Add("Stock", "STOK"); grid.Columns["Stock"].FillWeight = 50;
+            grid.Columns.Add("Barcode", "BARKOD"); grid.Columns["Barcode"].FillWeight = 90;
+            grid.Columns.Add("Name", "ÜRÜN ADI"); grid.Columns["Name"].FillWeight = 170;
+            grid.Columns.Add("Category", "KATEGORİ"); grid.Columns["Category"].FillWeight = 90;
+            grid.Columns.Add("BuyPrice", "ALIŞ"); grid.Columns["BuyPrice"].FillWeight = 65;
+            grid.Columns["BuyPrice"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            grid.Columns.Add("SellPrice", "SATIŞ"); grid.Columns["SellPrice"].FillWeight = 65;
+            grid.Columns["SellPrice"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            grid.Columns["SellPrice"].DefaultCellStyle.Font = new Font("Segoe UI", 10.5f, FontStyle.Bold);
+            grid.Columns.Add("Stock", "STOK"); grid.Columns["Stock"].FillWeight = 55;
+            grid.Columns["Stock"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+            grid.Columns["Stock"].DefaultCellStyle.Font = new Font("Segoe UI", 10.5f, FontStyle.Bold);
 
-            // DÜZENLE - MAVİ
+            // DÜZENLE
             var btnEdit = new DataGridViewButtonColumn
             {
                 Name = "Edit",
                 HeaderText = "",
                 Text = "Düzenle",
                 UseColumnTextForButtonValue = true,
-                Width = 90
+                FillWeight = 70,
+                FlatStyle = FlatStyle.Flat
             };
             grid.Columns.Add(btnEdit);
 
-            // SİL - KIRMIZI
+            // SİL
             var btnDel = new DataGridViewButtonColumn
             {
                 Name = "Del",
                 HeaderText = "",
                 Text = "Sil",
                 UseColumnTextForButtonValue = true,
-                Width = 70
+                FillWeight = 50,
+                FlatStyle = FlatStyle.Flat
             };
             grid.Columns.Add(btnDel);
 
@@ -283,29 +369,36 @@ namespace MN_Barcode.WinForms
             DataGridView grid = new DataGridView
             {
                 Dock = DockStyle.Fill,
-                BackgroundColor = Color.White,
+                BackgroundColor = ColSurface,
                 BorderStyle = BorderStyle.None,
                 RowHeadersVisible = false,
                 AllowUserToAddRows = false,
+                AllowUserToResizeRows = false,
+                AllowUserToOrderColumns = false,
+                ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing,
                 AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
                 SelectionMode = DataGridViewSelectionMode.FullRowSelect,
                 MultiSelect = false,
-                ReadOnly = true
+                ReadOnly = true,
+                CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal,
+                GridColor = Color.FromArgb(233, 238, 244)
             };
-            grid.RowTemplate.Height = 60;
-            grid.DefaultCellStyle.Font = new Font("Segoe UI", 13);
-            grid.DefaultCellStyle.ForeColor = Color.FromArgb(45, 55, 72);
-            grid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(237, 242, 247);
-            grid.DefaultCellStyle.SelectionForeColor = Color.FromArgb(45, 55, 72);
-            grid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(247, 250, 252);
+            grid.RowTemplate.Height = 52;
+            grid.DefaultCellStyle.Font = new Font("Segoe UI", 11.5f);
+            grid.DefaultCellStyle.ForeColor = ColText;
+            grid.DefaultCellStyle.BackColor = ColSurface;
+            grid.DefaultCellStyle.SelectionBackColor = ColBlueSoft;
+            grid.DefaultCellStyle.SelectionForeColor = ColStrong;
+            grid.DefaultCellStyle.Padding = new Padding(8, 0, 8, 0);
+            grid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(250, 251, 253);
 
-            grid.ColumnHeadersHeight = 60;
-            grid.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 12, FontStyle.Bold);
-            grid.ColumnHeadersDefaultCellStyle.ForeColor = Color.FromArgb(113, 128, 150);
-            grid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(237, 242, 247);
+            grid.ColumnHeadersHeight = 44;
+            grid.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
+            grid.ColumnHeadersDefaultCellStyle.ForeColor = ColMuted;
+            grid.ColumnHeadersDefaultCellStyle.BackColor = ColHeaderBg;
+            grid.ColumnHeadersDefaultCellStyle.Padding = new Padding(8, 0, 8, 0);
             grid.ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.None;
             grid.EnableHeadersVisualStyles = false;
-            grid.GridColor = Color.FromArgb(226, 232, 240);
 
             grid.Columns.Add("Id", "ID"); grid.Columns["Id"].Visible = false;
             grid.Columns.Add("Name", "KATEGORİ ADI"); grid.Columns["Name"].FillWeight = 200;
@@ -317,7 +410,8 @@ namespace MN_Barcode.WinForms
                 HeaderText = "",
                 Text = "Sil",
                 UseColumnTextForButtonValue = true,
-                Width = 100
+                FillWeight = 60,
+                FlatStyle = FlatStyle.Flat
             };
             grid.Columns.Add(btnDel);
 
@@ -333,18 +427,16 @@ namespace MN_Barcode.WinForms
             _productPanel.Visible = showProducts;
             _categoryPanel.Visible = !showProducts;
 
+            ApplyTabStyle();
+
             if (showProducts)
             {
-                _tabProducts.BackColor = Color.FromArgb(72, 187, 120);
-                _tabCategories.BackColor = Color.FromArgb(113, 128, 150);
-                _btnAction.Text = "+ YENİ ÜRÜN";
+                _btnAction.Text = "+  Yeni Ürün";
                 _productPanel.BringToFront();
             }
             else
             {
-                _tabCategories.BackColor = Color.FromArgb(72, 187, 120);
-                _tabProducts.BackColor = Color.FromArgb(113, 128, 150);
-                _btnAction.Text = "+ YENİ KATEGORİ";
+                _btnAction.Text = "+  Yeni Kategori";
                 _categoryPanel.BringToFront();
                 LoadCategories();
             }
@@ -376,16 +468,16 @@ namespace MN_Barcode.WinForms
                     inputForm.FormBorderStyle = FormBorderStyle.FixedDialog;
                     inputForm.MaximizeBox = false;
                     inputForm.MinimizeBox = false;
-                    inputForm.BackColor = Color.White;
+                    inputForm.BackColor = ColSurface;
 
                     Label lbl = new Label { Text = "Kategori Adı:", Location = new Point(30, 35), AutoSize = true, Font = new Font("Segoe UI", 12) };
-                    TextBox txt = new TextBox { Location = new Point(140, 30), Width = 220, Font = new Font("Segoe UI", 12) };
+                    TextBox txt = new TextBox { Location = new Point(140, 30), Width = 220, Font = new Font("Segoe UI", 12), BorderStyle = BorderStyle.FixedSingle };
                     Button btnOk = new Button
                     {
                         Text = "Ekle",
                         Location = new Point(140, 80),
                         Size = new Size(100, 40),
-                        BackColor = Color.FromArgb(56, 161, 105),
+                        BackColor = ColBlue,
                         ForeColor = Color.White,
                         FlatStyle = FlatStyle.Flat,
                         Font = new Font("Segoe UI", 11, FontStyle.Bold),
@@ -399,7 +491,7 @@ namespace MN_Barcode.WinForms
                         Location = new Point(250, 80),
                         Size = new Size(100, 40),
                         BackColor = Color.FromArgb(226, 232, 240),
-                        ForeColor = Color.FromArgb(45, 55, 72),
+                        ForeColor = ColText,
                         FlatStyle = FlatStyle.Flat,
                         Font = new Font("Segoe UI", 11, FontStyle.Bold),
                         DialogResult = DialogResult.Cancel
@@ -493,29 +585,32 @@ namespace MN_Barcode.WinForms
         {
             if (e.RowIndex < 0) return;
 
-            // STOK RENK
+            // STOK RENK (kolon 6)
             if (e.ColumnIndex == 6)
             {
                 string val = e.Value?.ToString()?.Replace(".", "").Replace(",", ".") ?? "0";
                 if (double.TryParse(val, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double stk))
                 {
-                    if (stk <= 5) e.CellStyle.ForeColor = Color.FromArgb(229, 62, 62);
-                    else if (stk <= 20) e.CellStyle.ForeColor = Color.FromArgb(237, 137, 54);
+                    if (stk <= 5) e.CellStyle.ForeColor = ColRed;
+                    else if (stk <= 20) e.CellStyle.ForeColor = ColAmber;
+                    else e.CellStyle.ForeColor = ColGreen;
                 }
             }
-            // DÜZENLE BUTON - MAVİ
+            // DÜZENLE BUTON - MAVİ (kolon 7)
             else if (e.ColumnIndex == 7)
             {
-                e.CellStyle.BackColor = Color.FromArgb(66, 153, 225);
+                e.CellStyle.BackColor = ColBlue;
                 e.CellStyle.ForeColor = Color.White;
-                e.CellStyle.Font = new Font("Segoe UI", 10, FontStyle.Bold);
+                e.CellStyle.SelectionBackColor = ColBlueDark;
+                e.CellStyle.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
             }
-            // SİL BUTON - KIRMIZI
+            // SİL BUTON - KIRMIZI (kolon 8)
             else if (e.ColumnIndex == 8)
             {
-                e.CellStyle.BackColor = Color.FromArgb(229, 62, 62);
+                e.CellStyle.BackColor = ColRed;
                 e.CellStyle.ForeColor = Color.White;
-                e.CellStyle.Font = new Font("Segoe UI", 10, FontStyle.Bold);
+                e.CellStyle.SelectionBackColor = Color.FromArgb(185, 28, 28);
+                e.CellStyle.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
             }
         }
 
@@ -537,12 +632,13 @@ namespace MN_Barcode.WinForms
         {
             if (e.RowIndex < 0) return;
 
-            // SİL BUTON - KIRMIZI
+            // SİL BUTON - KIRMIZI (kolon 3)
             if (e.ColumnIndex == 3)
             {
-                e.CellStyle.BackColor = Color.FromArgb(229, 62, 62);
+                e.CellStyle.BackColor = ColRed;
                 e.CellStyle.ForeColor = Color.White;
-                e.CellStyle.Font = new Font("Segoe UI", 11, FontStyle.Bold);
+                e.CellStyle.SelectionBackColor = Color.FromArgb(185, 28, 28);
+                e.CellStyle.Font = new Font("Segoe UI", 10, FontStyle.Bold);
             }
         }
     }
