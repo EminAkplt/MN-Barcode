@@ -12,21 +12,18 @@ namespace MN_Barcode.Business
     /// </summary>
     public class ProductService
     {
-        // 1. LİSTELEME (Arama destekli)
-        public List<Product> GetProducts(string search = "")
+        public List<Product> GetProducts(string search = "", string categoryName = "")
         {
             using var context = new BarcodeContext();
 
-            // Kategori bilgisini de birlikte çek (Include).
             var query = context.Products.Include(x => x.Category).AsQueryable();
 
             if (!string.IsNullOrEmpty(search))
-            {
-                // İsimde veya Barkodda ara (filtre veritabanında çalışır).
                 query = query.Where(x => x.Name.Contains(search) || x.Barcode.Contains(search));
-            }
 
-            // En son eklenen en üstte olsun.
+            if (!string.IsNullOrEmpty(categoryName) && categoryName != "Tümü")
+                query = query.Where(x => x.Category != null && x.Category.Name == categoryName);
+
             return query.OrderByDescending(x => x.Id).ToList();
         }
 

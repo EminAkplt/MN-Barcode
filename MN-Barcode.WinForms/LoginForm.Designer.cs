@@ -37,7 +37,6 @@
             ClientSize = new Size(800, 450);
             Name = "LoginForm";
             Text = "LoginForm";
-            Load += LoginForm_Load;
             ResumeLayout(false);
         }
 

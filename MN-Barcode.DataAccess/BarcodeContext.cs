@@ -12,18 +12,18 @@ namespace MN_Barcode.DataAccess
     /// </summary>
     public class BarcodeContext : DbContext
     {
-        // --- TABLOLAR (Her DbSet veritabanında bir tabloya karşılık gelir) ---
-        public DbSet<Product> Products { get; set; }          // Ürünler
-        public DbSet<Category> Categories { get; set; }       // Kategoriler
-        public DbSet<Expense> Expenses { get; set; }          // Giderler
-        public DbSet<Sale> Sales { get; set; }                // Satış fişleri
-        public DbSet<SaleDetail> SaleDetails { get; set; }    // Fiş satır detayları
-        public DbSet<AppUser> Users { get; set; }             // Kullanıcılar
-        public DbSet<SystemSettings> Settings { get; set; }   // Sistem ayarları
+        public DbSet<Product> Products { get; set; }
+        public DbSet<Category> Categories { get; set; }
+        public DbSet<Expense> Expenses { get; set; }
+        public DbSet<Sale> Sales { get; set; }
+        public DbSet<SaleDetail> SaleDetails { get; set; }
+        public DbSet<AppUser> Users { get; set; }
+        public DbSet<SystemSettings> Settings { get; set; }
 
-        // Bağlantı bulunamazsa kullanılacak güvenli varsayılan (yerel SQL Express).
         private const string VarsayilanBaglanti =
-            "Data Source=.\\SQLEXPRESS; Initial Catalog=MNBarcodeLocal; Integrated Security=True; TrustServerCertificate=True;";
+            "Data Source=(localdb)\\mssqllocaldb;Initial Catalog=MNBarcodeLocal;Integrated Security=true;";
+
+        private static string? _cachedConnectionString;
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
@@ -65,13 +65,11 @@ namespace MN_Barcode.DataAccess
             // ──────────────────────────────────────────────────────────────────
         }
 
-        /// <summary>
-        /// Uygulamanın çalıştığı klasördeki appsettings.json dosyasından
-        /// "ConnectionStrings:DefaultConnection" değerini okur.
-        /// Dosya yoksa veya değer boşsa null döner (varsayılana düşülür).
-        /// </summary>
         private static string? BaglantiCumlesiniOku()
         {
+            if (_cachedConnectionString != null)
+                return _cachedConnectionString;
+
             try
             {
                 var config = new ConfigurationBuilder()
@@ -79,7 +77,8 @@ namespace MN_Barcode.DataAccess
                     .AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
                     .Build();
 
-                return config.GetConnectionString("DefaultConnection");
+                _cachedConnectionString = config.GetConnectionString("DefaultConnection");
+                return _cachedConnectionString;
             }
             catch
             {

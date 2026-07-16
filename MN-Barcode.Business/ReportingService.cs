@@ -1,5 +1,6 @@
 using MN_Barcode.DataAccess;
 using MN_Barcode.Entities;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -76,27 +77,17 @@ namespace MN_Barcode.Business
             };
         }
 
-        // DETAY RAPOR VERİSİ (Ürün Bazlı)
         public List<TopSellingProduct> GetDailyProductDetails(DateTime date)
         {
             using var context = new BarcodeContext();
 
-            // O güne ait satış fişlerinin id'lerini veritabanında filtreleyerek al.
             DateTime gunBasi = date.Date;
             DateTime ertesiGun = gunBasi.AddDays(1);
 
-            var sales = context.Sales
-                .Where(x => x.CreatedDate >= gunBasi && x.CreatedDate < ertesiGun
-                         && x.SaleType == SaleType.Satis)
-                .Select(x => x.Id)
-                .ToList();
-
-            // Bu fişlere ait detay satırlarını veritabanında filtrele, sonra bellekte grupla.
-            var rawData = context.SaleDetails
-                .Where(x => sales.Contains(x.SaleId))
-                .ToList();
-
-            var grouped = rawData
+            var grouped = context.SaleDetails
+                .Include(x => x.Sale)
+                .Where(x => x.Sale.CreatedDate >= gunBasi && x.Sale.CreatedDate < ertesiGun
+                         && x.Sale.SaleType == SaleType.Satis)
                 .GroupBy(x => x.ProductId)
                 .Select(g => new TopSellingProduct
                 {
@@ -107,16 +98,14 @@ namespace MN_Barcode.Business
                 .OrderByDescending(x => x.TotalRevenue)
                 .ToList();
 
-            // Ürün isimlerini doldur.
+            var productIds = grouped.ConvertAll(g => g.ProductId);
+            var products = context.Products.Where(p => productIds.Contains(p.Id)).ToDictionary(p => p.Id);
             foreach (var item in grouped)
-            {
-                var p = context.Products.Find(item.ProductId);
-                if (p != null)
+                if (products.TryGetValue(item.ProductId, out var p))
                 {
                     item.ProductName = p.Name;
                     item.Barcode = p.Barcode;
                 }
-            }
 
             return grouped;
         }

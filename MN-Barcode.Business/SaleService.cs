@@ -23,23 +23,19 @@ namespace MN_Barcode.Business
             using var transaction = context.Database.BeginTransaction();
             try
             {
-                // 1. FİŞİ KAYDET
                 sale.CreatedDate = DateTime.Now;
                 context.Sales.Add(sale);
-                context.SaveChanges(); // sale.Id burada üretilir
+                context.SaveChanges();
 
-                // 2. DETAYLARI EKLE VE STOKTAN DÜŞ
+                var productIds = details.ConvertAll(d => d.ProductId);
+                var products = context.Products.Where(p => productIds.Contains(p.Id)).ToDictionary(p => p.Id);
+
                 foreach (var item in details)
                 {
                     item.SaleId = sale.Id;
                     context.SaleDetails.Add(item);
-
-                    // İade ise Quantity negatif → stok artar; satış ise azalır.
-                    var product = context.Products.Find(item.ProductId);
-                    if (product != null)
-                    {
+                    if (products.TryGetValue(item.ProductId, out var product))
                         product.StockQuantity -= item.Quantity;
-                    }
                 }
 
                 context.SaveChanges();
@@ -62,16 +58,12 @@ namespace MN_Barcode.Business
             DateTime start = startDate ?? DateTime.MinValue;
             DateTime end   = endDate   ?? DateTime.MaxValue;
 
-            // SaleType.Satis ve pozitif Quantity = normal satış satırı
-            var rawData = context.SaleDetails
+            var grouped = context.SaleDetails
                 .Include(x => x.Sale)
                 .Where(x => x.Sale.CreatedDate >= start
                          && x.Sale.CreatedDate <= end
                          && x.Sale.SaleType == SaleType.Satis
                          && x.Quantity > 0)
-                .ToList();
-
-            var grouped = rawData
                 .GroupBy(x => x.ProductId)
                 .Select(g => new TopSellingProduct
                 {
@@ -97,15 +89,11 @@ namespace MN_Barcode.Business
             DateTime start = startDate ?? DateTime.MinValue;
             DateTime end   = endDate   ?? DateTime.MaxValue;
 
-            // SaleType.Iade = iade fişi satırları
-            var rawData = context.SaleDetails
+            var grouped = context.SaleDetails
                 .Include(x => x.Sale)
                 .Where(x => x.Sale.CreatedDate >= start
                          && x.Sale.CreatedDate <= end
                          && x.Sale.SaleType == SaleType.Iade)
-                .ToList();
-
-            var grouped = rawData
                 .GroupBy(x => x.ProductId)
                 .Select(g => new TopSellingProduct
                 {
@@ -121,18 +109,16 @@ namespace MN_Barcode.Business
             return grouped;
         }
 
-        // Gruplanmış sonuçlara ürün adı/barkod bilgisini doldurur.
         private void FillProductDetails(BarcodeContext context, List<TopSellingProduct> list)
         {
+            var productIds = list.ConvertAll(l => l.ProductId);
+            var products = context.Products.Where(p => productIds.Contains(p.Id)).ToDictionary(p => p.Id);
             foreach (var item in list)
-            {
-                var product = context.Products.Find(item.ProductId);
-                if (product != null)
+                if (products.TryGetValue(item.ProductId, out var product))
                 {
                     item.ProductName = product.Name;
-                    item.Barcode     = product.Barcode;
+                    item.Barcode = product.Barcode;
                 }
-            }
         }
 
         // ──────────────────────────────────────────────────────────────────

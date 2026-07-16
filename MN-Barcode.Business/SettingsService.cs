@@ -11,21 +11,22 @@ namespace MN_Barcode.Business
     /// </summary>
     public class SettingsService
     {
-        // Default şifreler ve ayar anahtarları
         public const string DEFAULT_PASSWORD = "123";
         public const string KEY_USER_PASSWORD = "UserPassword";
         public const string KEY_ADMIN_PASSWORD = "AdminPassword";
         public const string KEY_REPORTS_PASSWORD = "ReportsPassword";
 
+        private static bool _defaultsEnsured = false;
+
         public SettingsService()
         {
-            // İlk kurulumda varsayılan ayarların var olduğundan emin ol.
-            EnsureDefaultSettings();
+            if (!_defaultsEnsured)
+            {
+                EnsureDefaultSettings();
+                _defaultsEnsured = true;
+            }
         }
 
-        /// <summary>
-        /// Default ayarları oluştur (ilk kurulum için). Eksik anahtarları ekler.
-        /// </summary>
         private void EnsureDefaultSettings()
         {
             using var context = new BarcodeContext();
@@ -50,9 +51,7 @@ namespace MN_Barcode.Business
             }
 
             if (hasChanges)
-            {
                 context.SaveChanges();
-            }
         }
 
         /// <summary>Verilen anahtarın değerini getirir (yoksa boş metin).</summary>

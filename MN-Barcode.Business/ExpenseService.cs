@@ -32,20 +32,19 @@ namespace MN_Barcode.Business
             }
         }
 
-        // Gider Listele (Tarih Aralığına Göre)
-        public List<Expense> GetExpenses(DateTime startDate, DateTime endDate)
+        public List<Expense> GetExpenses(DateTime startDate, DateTime endDate, string search = "")
         {
             using var context = new BarcodeContext();
 
-            // Aralığı gün bazına normalize et (başlangıç günü 00:00, bitiş gününün sonu).
             DateTime baslangic = startDate.Date;
             DateTime bitisHaric = endDate.Date.AddDays(1);
 
-            // Filtre veritabanında uygulanır; tüm gider tablosu belleğe çekilmez.
-            return context.Expenses
-                .Where(x => x.ExpenseDate >= baslangic && x.ExpenseDate < bitisHaric)
-                .OrderByDescending(x => x.ExpenseDate)
-                .ToList();
+            var query = context.Expenses.Where(x => x.ExpenseDate >= baslangic && x.ExpenseDate < bitisHaric);
+
+            if (!string.IsNullOrEmpty(search))
+                query = query.Where(x => x.Description.Contains(search));
+
+            return query.OrderByDescending(x => x.ExpenseDate).ToList();
         }
 
         // Toplam Gider (Tarih Aralığına Göre)

@@ -153,9 +153,5 @@ namespace MN_Barcode.WinForms
             }
         }
 
-        private void LoginForm_Load(object sender, EventArgs e)
-        {
-
-        }
     }
 }
