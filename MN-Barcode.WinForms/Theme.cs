@@ -29,6 +29,7 @@ namespace MN_Barcode.WinForms
 
         // Vurgu renkleri (yalın tutuldu — sadece anlam taşıyanlar)
         public static readonly Color Primary = Color.FromArgb(37, 99, 235);   // Mavi  (genel vurgu)
+        public static readonly Color PrimaryDark = Color.FromArgb(29, 78, 188); // Koyu mavi (hover)
         public static readonly Color Success = Color.FromArgb(22, 163, 74);   // Yeşil (ciro, olumlu)
         public static readonly Color Warning = Color.FromArgb(217, 119, 6);   // Amber (uyarı, stok)
         public static readonly Color Danger  = Color.FromArgb(220, 38, 38);   // Kırmızı (kritik, hata)

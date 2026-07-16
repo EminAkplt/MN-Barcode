@@ -31,10 +31,9 @@ namespace MN_Barcode.WinForms
         private Label _lblMonthlyCiro;
         private Label _lblTodayCount;
 
-        // Grafik ve liste
+        // Grafik
         private Panel _chartPanel;
         private List<DailySalesData> _chartData = new List<DailySalesData>();
-        private DataGridView _gridLowStock;
 
         public HomeDashboardForm()
         {
@@ -90,7 +89,7 @@ namespace MN_Barcode.WinForms
             Panel header = new Panel
             {
                 Dock = DockStyle.Top,
-                Height = 64,
+                Height = 80,
                 BackColor = Theme.Surface,
                 Padding = new Padding(Theme.PagePad, 0, Theme.PagePad, 0)
             };
@@ -107,67 +106,119 @@ namespace MN_Barcode.WinForms
                 Font = Theme.H1,
                 ForeColor = Theme.TextStrong,
                 AutoSize = true,
-                Location = new Point(Theme.PagePad, 18)
+                Location = new Point(Theme.PagePad, 12)
             };
             header.Controls.Add(title);
 
-            // Sağ taraftaki tarih kontrolleri (sağa yaslı akış)
-            FlowLayoutPanel controls = new FlowLayoutPanel
+            // Sağ taraftaki filtre paneli (daha yapılandırılmış)
+            Panel filterPanel = new Panel
             {
                 Dock = DockStyle.Right,
+                Width = 420,
+                BackColor = Color.Transparent,
+                Padding = new Padding(0, 8, 0, 8)
+            };
+            header.Controls.Add(filterPanel);
+
+            // Filtre başlığı
+            Label filterLabel = new Label
+            {
+                Text = "Tarih Aralığı:",
+                Font = Theme.Caption,
+                ForeColor = Theme.TextMuted,
+                AutoSize = true,
+                Location = new Point(0, 0)
+            };
+            filterPanel.Controls.Add(filterLabel);
+
+            // Tarih seçim konteyneri
+            FlowLayoutPanel dateControls = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Bottom,
                 FlowDirection = FlowDirection.LeftToRight,
                 WrapContents = false,
                 AutoSize = true,
                 BackColor = Color.Transparent,
-                Padding = new Padding(0, 14, 0, 0)
+                Height = 44,
+                Padding = new Padding(0, 4, 0, 0)
             };
-            header.Controls.Add(controls);
+            filterPanel.Controls.Add(dateControls);
 
-            _dtpStart = new DateTimePicker
-            {
-                Format = DateTimePickerFormat.Short,
-                Width = 110,
-                Font = Theme.Body,
-                Value = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1),
-                Margin = new Padding(4, 4, 4, 4)
-            };
-            _dtpStart.ValueChanged += (s, e) => LoadChartAndStock();
-            controls.Controls.Add(_dtpStart);
+            _dtpStart = BuildStyledDateTimePicker(
+                new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1),
+                () => LoadChartAndStock());
+            dateControls.Controls.Add(_dtpStart);
 
-            controls.Controls.Add(new Label
+            Label separator = new Label
             {
                 Text = "–",
                 Font = Theme.Body,
                 ForeColor = Theme.TextMuted,
                 AutoSize = true,
-                Margin = new Padding(2, 10, 2, 0)
-            });
-
-            _dtpEnd = new DateTimePicker
-            {
-                Format = DateTimePickerFormat.Short,
-                Width = 110,
-                Font = Theme.Body,
-                Value = DateTime.Today,
-                Margin = new Padding(4, 4, 4, 4)
+                Margin = new Padding(6, 10, 6, 0),
+                Width = 12
             };
-            _dtpEnd.ValueChanged += (s, e) => LoadChartAndStock();
-            controls.Controls.Add(_dtpEnd);
+            dateControls.Controls.Add(separator);
 
-            controls.Controls.Add(BuildGhostButton("Bu Hafta", () =>
+            _dtpEnd = BuildStyledDateTimePicker(DateTime.Today, () => LoadChartAndStock());
+            dateControls.Controls.Add(_dtpEnd);
+
+            // Hızlı seçim butonları
+            dateControls.Controls.Add(BuildDateShortcutButton("Bu Hafta", () =>
             {
                 var today = DateTime.Today;
                 int diff = (7 + (today.DayOfWeek - DayOfWeek.Monday)) % 7;
                 _dtpStart.Value = today.AddDays(-diff);
                 _dtpEnd.Value = today;
             }));
-            controls.Controls.Add(BuildGhostButton("Bu Ay", () =>
+            dateControls.Controls.Add(BuildDateShortcutButton("Bu Ay", () =>
             {
                 _dtpStart.Value = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
                 _dtpEnd.Value = DateTime.Today;
             }));
 
             return header;
+        }
+
+        private DateTimePicker BuildStyledDateTimePicker(DateTime initialValue, Action onChanged)
+        {
+            DateTimePicker dtp = new DateTimePicker
+            {
+                Format = DateTimePickerFormat.Short,
+                Width = 105,
+                Font = Theme.Body,
+                Value = initialValue,
+                BackColor = Theme.Background,
+                ForeColor = Theme.TextDark,
+                CalendarMonthBackground = Theme.Background,
+                CalendarForeColor = Theme.TextDark,
+                CalendarTitleBackColor = Theme.Primary,
+                CalendarTitleForeColor = Color.White,
+                CalendarTrailingForeColor = Theme.TextMuted
+            };
+            dtp.ValueChanged += (s, e) => onChanged();
+            return dtp;
+        }
+
+        private Button BuildDateShortcutButton(string text, Action onClick)
+        {
+            Button btn = new Button
+            {
+                Text = text,
+                AutoSize = false,
+                Width = 70,
+                Height = 34,
+                BackColor = Theme.Primary,
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font(Theme.FontName, 9, FontStyle.Bold),
+                Cursor = Cursors.Hand,
+                Margin = new Padding(6, 0, 0, 0)
+            };
+            btn.FlatAppearance.BorderSize = 0;
+            btn.FlatAppearance.MouseOverBackColor = Theme.PrimaryDark;
+            btn.Click += (s, e) => onClick();
+            return btn;
         }
 
         // --- 3 adet özet (KPI) kartı ---
@@ -190,70 +241,30 @@ namespace MN_Barcode.WinForms
             return row;
         }
 
-        // --- Alt satır: solda grafik, sağda kritik stok ---
+        // --- Alt satır: tam genişlikli satış grafiği ---
         private TableLayoutPanel BuildBottomRow()
         {
             TableLayoutPanel row = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
-                ColumnCount = 2,
+                ColumnCount = 1,
                 RowCount = 1,
                 BackColor = Color.Transparent,
                 Margin = new Padding(0, Theme.Gap, 0, 0)
             };
-            row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 64F));
-            row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 36F));
+            row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
 
-            // Grafik kartı
+            // Grafik kartı (tam genişlik)
             _chartPanel = new Panel
             {
                 Dock = DockStyle.Fill,
                 BackColor = Theme.Surface,
-                Margin = new Padding(0, 0, Theme.Gap / 2, 0)
+                MinimumSize = new Size(0, 300)
             };
             _chartPanel.Paint += ChartPanel_Paint;
             row.Controls.Add(_chartPanel, 0, 0);
 
-            // Kritik stok kartı
-            row.Controls.Add(BuildLowStockCard(), 1, 0);
-
             return row;
-        }
-
-        private Panel BuildLowStockCard()
-        {
-            Panel card = new Panel
-            {
-                Dock = DockStyle.Fill,
-                BackColor = Theme.Surface,
-                Margin = new Padding(Theme.Gap / 2, 0, 0, 0),
-                Padding = new Padding(1) // kenarlık çizimi için
-            };
-            card.Paint += (s, e) => Theme.PaintCard(card, e, Theme.Warning);
-
-            Label head = new Label
-            {
-                Text = "Kritik Stok",
-                Font = Theme.H2,
-                ForeColor = Theme.Warning,
-                Dock = DockStyle.Top,
-                Height = 48,
-                TextAlign = ContentAlignment.MiddleLeft,
-                Padding = new Padding(Theme.CardPad, 0, 0, 0)
-            };
-
-            _gridLowStock = BuildGrid();
-            _gridLowStock.Columns.Add("Name", "ÜRÜN");
-            _gridLowStock.Columns["Name"].FillWeight = 150;
-            _gridLowStock.Columns.Add("Stock", "STOK");
-            _gridLowStock.Columns["Stock"].FillWeight = 55;
-
-            Panel gridWrap = new Panel { Dock = DockStyle.Fill, Padding = new Padding(Theme.CardPad - 8, 0, Theme.CardPad - 8, Theme.CardPad - 8) };
-            gridWrap.Controls.Add(_gridLowStock);
-
-            card.Controls.Add(gridWrap);
-            card.Controls.Add(head);
-            return card;
         }
 
         // ============================================================
@@ -294,64 +305,6 @@ namespace MN_Barcode.WinForms
             card.Controls.Add(valueLabel);
 
             return card;
-        }
-
-        // "Hayalet" buton: zemini yok, ince kenarlık — sade, dikkat dağıtmaz.
-        private Button BuildGhostButton(string text, Action onClick)
-        {
-            Button btn = new Button
-            {
-                Text = text,
-                AutoSize = false,
-                Width = 72,
-                Height = 30,
-                BackColor = Theme.Surface,
-                ForeColor = Theme.TextDark,
-                FlatStyle = FlatStyle.Flat,
-                Font = Theme.Caption,
-                Cursor = Cursors.Hand,
-                Margin = new Padding(4, 4, 0, 4)
-            };
-            btn.FlatAppearance.BorderColor = Theme.Border;
-            btn.FlatAppearance.BorderSize = 1;
-            btn.FlatAppearance.MouseOverBackColor = Theme.Background;
-            btn.Click += (s, e) => onClick();
-            return btn;
-        }
-
-        // Sade veri tablosu (çizgisiz, soluk başlık).
-        private DataGridView BuildGrid()
-        {
-            DataGridView grid = new DataGridView
-            {
-                Dock = DockStyle.Fill,
-                BackgroundColor = Theme.Surface,
-                BorderStyle = BorderStyle.None,
-                RowHeadersVisible = false,
-                AllowUserToAddRows = false,
-                AllowUserToResizeRows = false,
-                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
-                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
-                MultiSelect = false,
-                ReadOnly = true,
-                GridColor = Theme.Border,
-                CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal,
-                EnableHeadersVisualStyles = false,
-                ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.None
-            };
-            grid.RowTemplate.Height = 38;
-            grid.DefaultCellStyle.Font = Theme.Body;
-            grid.DefaultCellStyle.ForeColor = Theme.TextDark;
-            grid.DefaultCellStyle.BackColor = Theme.Surface;
-            grid.DefaultCellStyle.SelectionBackColor = Theme.Background;
-            grid.DefaultCellStyle.SelectionForeColor = Theme.TextDark;
-            grid.DefaultCellStyle.Padding = new Padding(4, 0, 4, 0);
-
-            grid.ColumnHeadersHeight = 38;
-            grid.ColumnHeadersDefaultCellStyle.Font = Theme.Caption;
-            grid.ColumnHeadersDefaultCellStyle.ForeColor = Theme.TextMuted;
-            grid.ColumnHeadersDefaultCellStyle.BackColor = Theme.Surface;
-            return grid;
         }
 
         // ============================================================
@@ -476,28 +429,17 @@ namespace MN_Barcode.WinForms
             }
         }
 
-        // Tarih aralığına bağlı kısımlar (grafik + kritik stok) — tarih değişince tekrar çalışır.
+        // Tarih aralığına bağlı grafik — tarih değişince yeniden yüklenir.
         private void LoadChartAndStock()
         {
             try
             {
                 _chartData = _saleService.GetDailySales(_dtpStart.Value, _dtpEnd.Value);
                 _chartPanel?.Invalidate();
-
-                if (_gridLowStock == null) return;
-                _gridLowStock.Rows.Clear();
-                foreach (var item in _productService.GetLowStockProducts(12, 20))
-                {
-                    int idx = _gridLowStock.Rows.Add(item.Name, item.StockQuantity.ToString("N0"));
-                    var stockCell = _gridLowStock.Rows[idx].Cells[1];
-                    // 5 ve altı kırmızı (kritik), diğerleri amber (uyarı).
-                    stockCell.Style.ForeColor = item.StockQuantity <= 5 ? Theme.Danger : Theme.Warning;
-                    stockCell.Style.Font = new Font(Theme.FontName, 10, FontStyle.Bold);
-                }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine("Grafik/stok yüklenirken hata: " + ex.Message);
+                System.Diagnostics.Debug.WriteLine("Grafik yüklenirken hata: " + ex.Message);
             }
         }
     }
