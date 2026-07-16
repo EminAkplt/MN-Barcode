@@ -136,6 +136,24 @@ namespace MN_Barcode.Business
         }
 
         // ──────────────────────────────────────────────────────────────────
+        // SATIŞ GEÇMİŞİ - ÜRÜN DETAYLARI İLE (Her ürün ayrı satır)
+        // ──────────────────────────────────────────────────────────────────
+        public List<SaleDetail> GetSalesHistoryWithDetails(DateTime startDate, DateTime endDate)
+        {
+            using var context = new BarcodeContext();
+            return context.SaleDetails
+                .Include(x => x.Sale)
+                .Include(x => x.Product)
+                .Where(x => x.Sale.CreatedDate >= startDate
+                         && x.Sale.CreatedDate <= endDate
+                         && x.Sale.SaleType == SaleType.Satis
+                         && x.Quantity > 0)
+                .OrderByDescending(x => x.Sale.CreatedDate)
+                .ThenBy(x => x.Sale.TransactionCode)
+                .ToList();
+        }
+
+        // ──────────────────────────────────────────────────────────────────
         // İADE GEÇMİŞİ (Sadece iadeler)
         // ──────────────────────────────────────────────────────────────────
         public List<Sale> GetReturnsHistory(DateTime startDate, DateTime endDate)
@@ -146,6 +164,24 @@ namespace MN_Barcode.Business
                          && x.CreatedDate <= endDate
                          && x.SaleType == SaleType.Iade)
                 .OrderByDescending(x => x.CreatedDate)
+                .ToList();
+        }
+
+        // ──────────────────────────────────────────────────────────────────
+        // İADE GEÇMİŞİ - ÜRÜN DETAYLARI İLE (Her ürün ayrı satır)
+        // ──────────────────────────────────────────────────────────────────
+        public List<SaleDetail> GetReturnsHistoryWithDetails(DateTime startDate, DateTime endDate)
+        {
+            using var context = new BarcodeContext();
+            return context.SaleDetails
+                .Include(x => x.Sale)
+                .Include(x => x.Product)
+                .Where(x => x.Sale.CreatedDate >= startDate
+                         && x.Sale.CreatedDate <= endDate
+                         && x.Sale.SaleType == SaleType.Iade
+                         && x.Quantity < 0)  // İade negatif quantity
+                .OrderByDescending(x => x.Sale.CreatedDate)
+                .ThenBy(x => x.Sale.TransactionCode)
                 .ToList();
         }
 

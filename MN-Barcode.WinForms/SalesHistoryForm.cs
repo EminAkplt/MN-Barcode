@@ -1,9 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
+using System.Linq;
 using System.Windows.Forms;
 using MN_Barcode.Business;
 using MN_Barcode.Entities;
-using System.Linq;
 
 namespace MN_Barcode.WinForms
 {
@@ -11,10 +12,17 @@ namespace MN_Barcode.WinForms
     {
         private SaleService _saleService;
         private DataGridView _gridSales;
-        private DataGridView _gridTopSelling;
         private DateTimePicker _dtStart;
         private DateTimePicker _dtEnd;
         private Label _lblTotalRevenue;
+        private TextBox _txtSearch;
+
+        private static readonly Color[] RowColors = new[]
+        {
+            Color.FromArgb(240, 248, 255),  // Alice Blue (çok açık mavi)
+            Color.FromArgb(240, 255, 240),  // Honeydew (çok açık yeşil)
+            Color.FromArgb(255, 250, 240)   // Floral White (çok açık krem)
+        };
 
         public SalesHistoryForm()
         {
@@ -26,97 +34,109 @@ namespace MN_Barcode.WinForms
 
         private void InitUI()
         {
-            this.BackColor = Color.FromArgb(247, 250, 252);
+            this.BackColor = Theme.Background;
             this.Dock = DockStyle.Fill;
             this.FormBorderStyle = FormBorderStyle.None;
 
             // HEADER
-            Panel header = new Panel { Dock = DockStyle.Top, Height = 80, BackColor = Color.FromArgb(45, 55, 72) };
+            Panel header = new Panel { Dock = DockStyle.Top, Height = 80, BackColor = Theme.Surface, Padding = new Padding(Theme.PagePad, 0, Theme.PagePad, 0) };
             this.Controls.Add(header);
+            header.Paint += (s, e) =>
+            {
+                using (var pen = new Pen(Theme.Border, 1))
+                    e.Graphics.DrawLine(pen, 0, header.Height - 1, header.Width, header.Height - 1);
+            };
 
-            Label title = new Label { Text = "💰 SATIŞ GEÇMİŞİ", Font = new Font("Segoe UI", 16, FontStyle.Bold), ForeColor = Color.White, Location = new Point(30, 25), AutoSize = true };
+            Label title = new Label { Text = "Satış Geçmişi", Font = Theme.H1, ForeColor = Theme.TextStrong, AutoSize = true, Location = new Point(Theme.PagePad, 18) };
             header.Controls.Add(title);
 
-            // Tarih Seçimi
-            _dtStart = new DateTimePicker { Location = new Point(300, 30), Format = DateTimePickerFormat.Short, Width = 120, Font = new Font("Segoe UI", 11) };
-            _dtStart.Value = DateTime.Now.AddDays(-7); // Son 7 gün varsayılan
-            header.Controls.Add(_dtStart);
+            // Sağ taraftaki kontroller
+            FlowLayoutPanel controls = new FlowLayoutPanel { Dock = DockStyle.Right, FlowDirection = FlowDirection.LeftToRight, WrapContents = false, AutoSize = true, BackColor = Color.Transparent, Padding = new Padding(0, 14, 0, 0) };
+            header.Controls.Add(controls);
 
-            Label lblTo = new Label { Text = "➡", ForeColor = Color.White, Location = new Point(430, 30), AutoSize = true, Font = new Font("Segoe UI", 11) };
-            header.Controls.Add(lblTo);
+            _dtStart = BuildStyledDateTimePicker(DateTime.Today.AddDays(-7), () => LoadData());
+            controls.Controls.Add(_dtStart);
 
-            _dtEnd = new DateTimePicker { Location = new Point(460, 30), Format = DateTimePickerFormat.Short, Width = 120, Font = new Font("Segoe UI", 11) };
-            header.Controls.Add(_dtEnd);
+            controls.Controls.Add(new Label { Text = "–", Font = Theme.Body, ForeColor = Theme.TextMuted, AutoSize = true, Margin = new Padding(6, 10, 6, 0) });
 
-            Button btnFilter = new Button { Text = "Filtrele", Location = new Point(600, 28), Size = new Size(100, 35), BackColor = Color.FromArgb(66, 153, 225), ForeColor = Color.White, FlatStyle = FlatStyle.Flat, Font = new Font("Segoe UI", 10, FontStyle.Bold) };
-            btnFilter.FlatAppearance.BorderSize = 0;
-            btnFilter.Click += (s, e) => LoadData();
-            header.Controls.Add(btnFilter);
+            _dtEnd = BuildStyledDateTimePicker(DateTime.Today, () => LoadData());
+            controls.Controls.Add(_dtEnd);
 
-            // Özet Bilgiler (Header içinde)
-            _lblTotalRevenue = new Label { Text = "Toplam: ₺0.00", Font = new Font("Segoe UI", 14, FontStyle.Bold), ForeColor = Color.FromArgb(72, 187, 120), Location = new Point(header.Width - 300, 25), Anchor = AnchorStyles.Top | AnchorStyles.Right, AutoSize = true };
-            header.Controls.Add(_lblTotalRevenue);
+            // Arama kutusu
+            _txtSearch = new TextBox { Width = 120, Height = 32, Font = Theme.Body, Margin = new Padding(8, 0, 0, 0), Text = "Barkod..." };
+            _txtSearch.GotFocus += (s, e) => { if (_txtSearch.Text == "Barkod...") _txtSearch.Text = ""; };
+            _txtSearch.LostFocus += (s, e) => { if (_txtSearch.Text == "") _txtSearch.Text = "Barkod..."; };
+            _txtSearch.TextChanged += (s, e) => FilterData();
+            controls.Controls.Add(_txtSearch);
 
             // İÇERİK
-            TableLayoutPanel content = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, Padding = new Padding(20) };
-            content.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 60F)); // Sol taraf %60 (Liste)
-            content.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 40F)); // Sağ taraf %40 (Top 10)
+            Panel content = new Panel { Dock = DockStyle.Fill, BackColor = Theme.Background, Padding = new Padding(Theme.PagePad) };
             this.Controls.Add(content);
-            content.BringToFront();
 
-            // SOL: SATIŞ LİSTESİ
-            Panel leftPanel = CreateCardPanel("🧾 SATIŞ HAREKETLERİ");
-            content.Controls.Add(leftPanel, 0, 0);
+            // Panel başlığı + özet
+            Panel headerPanel = new Panel { Dock = DockStyle.Top, Height = 50, BackColor = Color.Transparent };
+            content.Controls.Add(headerPanel);
+
+            Label panelTitle = new Label { Text = "Satılan Ürünler (Her satır = 1 ürün, aynı renk = aynı fiş)", Font = Theme.H2, ForeColor = Theme.TextDark, AutoSize = true, Location = new Point(0, 0) };
+            headerPanel.Controls.Add(panelTitle);
+
+            _lblTotalRevenue = new Label { Text = "Toplam: ₺0.00", Font = Theme.H2, ForeColor = Theme.Success, AutoSize = true, Dock = DockStyle.Right };
+            headerPanel.Controls.Add(_lblTotalRevenue);
+
+            // Grid
+            Panel gridPanel = new Panel { Dock = DockStyle.Fill, BackColor = Theme.Surface, Padding = new Padding(0, Theme.Gap, 0, 0) };
+            content.Controls.Add(gridPanel);
 
             _gridSales = CreateGrid();
-            _gridSales.Columns.Add("Id", "ID"); _gridSales.Columns["Id"].Visible = false;
-            _gridSales.Columns.Add("Date", "TARİH"); _gridSales.Columns["Date"].Width = 150;
-            _gridSales.Columns.Add("Code", "FİŞ NO"); _gridSales.Columns["Code"].Width = 120;
-            _gridSales.Columns.Add("Type", "ÖDEME"); _gridSales.Columns["Type"].Width = 100;
-            _gridSales.Columns.Add("Amount", "TUTAR"); _gridSales.Columns["Amount"].DefaultCellStyle.Format = "C2";
-            
-            Panel gridContainer1 = new Panel { Dock = DockStyle.Fill, Padding = new Padding(15, 0, 15, 15) };
-            gridContainer1.Controls.Add(_gridSales);
-            leftPanel.Controls.Add(gridContainer1);
-            gridContainer1.BringToFront();
+            _gridSales.Columns.Add("SaleId", "FİŞ NO"); _gridSales.Columns["SaleId"].Width = 80;
+            _gridSales.Columns.Add("Date", "TARİH"); _gridSales.Columns["Date"].Width = 140;
+            _gridSales.Columns.Add("Barcode", "BARCODE"); _gridSales.Columns["Barcode"].Width = 100;
+            _gridSales.Columns.Add("Product", "ÜRÜN ADI"); _gridSales.Columns["Product"].FillWeight = 200;
+            _gridSales.Columns.Add("Qty", "ADET"); _gridSales.Columns["Qty"].Width = 60;
+            _gridSales.Columns.Add("Price", "TUTARı"); _gridSales.Columns["Price"].Width = 100; _gridSales.Columns["Price"].DefaultCellStyle.Format = "C2";
 
-            // SAĞ: EN ÇOK SATILANLAR
-            Panel rightPanel = CreateCardPanel("🏆 DÖNEMİN YILDIZLARI (Top 10)");
-            content.Controls.Add(rightPanel, 1, 0);
-
-            _gridTopSelling = CreateGrid();
-            _gridTopSelling.Columns.Add("Name", "ÜRÜN ADI"); _gridTopSelling.Columns["Name"].FillWeight = 150;
-            _gridTopSelling.Columns.Add("Qty", "ADET"); _gridTopSelling.Columns["Qty"].FillWeight = 50;
-            _gridTopSelling.Columns.Add("Rev", "CİRO"); _gridTopSelling.Columns["Rev"].DefaultCellStyle.Format = "C2"; _gridTopSelling.Columns["Rev"].FillWeight = 80;
-
-            Panel gridContainer2 = new Panel { Dock = DockStyle.Fill, Padding = new Padding(15, 0, 15, 15) };
-            gridContainer2.Controls.Add(_gridTopSelling);
-            rightPanel.Controls.Add(gridContainer2);
-            gridContainer2.BringToFront();
+            Panel gridContainer = new Panel { Dock = DockStyle.Fill, Padding = new Padding(1) };
+            gridContainer.Controls.Add(_gridSales);
+            gridPanel.Controls.Add(gridContainer);
         }
 
-        private Panel CreateCardPanel(string title)
+        private DateTimePicker BuildStyledDateTimePicker(DateTime initialValue, Action onChanged)
         {
-            Panel panel = new Panel { Dock = DockStyle.Fill, BackColor = Color.White, Margin = new Padding(10) };
-            Label lbl = new Label { Text = title, Font = new Font("Segoe UI", 12, FontStyle.Bold), ForeColor = Color.FromArgb(45, 55, 72), Dock = DockStyle.Top, Height = 45, TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(15, 0, 0, 0) };
-            panel.Controls.Add(lbl);
-            return panel;
+            DateTimePicker dtp = new DateTimePicker
+            {
+                Format = DateTimePickerFormat.Short,
+                Width = 105,
+                Font = Theme.Body,
+                Value = initialValue,
+                BackColor = Theme.Background,
+                ForeColor = Theme.TextDark
+            };
+            dtp.ValueChanged += (s, e) => onChanged();
+            return dtp;
         }
 
         private DataGridView CreateGrid()
         {
             DataGridView grid = new DataGridView
             {
-                Dock = DockStyle.Fill, BackgroundColor = Color.White, BorderStyle = BorderStyle.None,
-                RowHeadersVisible = false, AllowUserToAddRows = false, AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
-                SelectionMode = DataGridViewSelectionMode.FullRowSelect, MultiSelect = false, ReadOnly = true,
-                RowTemplate = { Height = 40 }
+                Dock = DockStyle.Fill,
+                BackgroundColor = Theme.Surface,
+                BorderStyle = BorderStyle.None,
+                RowHeadersVisible = false,
+                AllowUserToAddRows = false,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+                MultiSelect = false,
+                ReadOnly = true,
+                RowTemplate = { Height = 36 }
             };
-            grid.DefaultCellStyle.Font = new Font("Segoe UI", 10);
-            grid.ColumnHeadersHeight = 45;
-            grid.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9, FontStyle.Bold);
-            grid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(237, 242, 247);
-            grid.ColumnHeadersDefaultCellStyle.ForeColor = Color.FromArgb(100, 116, 139);
+            grid.DefaultCellStyle.Font = Theme.Body;
+            grid.DefaultCellStyle.ForeColor = Theme.TextDark;
+            grid.DefaultCellStyle.BackColor = Theme.Surface;
+            grid.ColumnHeadersHeight = 36;
+            grid.ColumnHeadersDefaultCellStyle.Font = Theme.Caption;
+            grid.ColumnHeadersDefaultCellStyle.ForeColor = Theme.TextMuted;
+            grid.ColumnHeadersDefaultCellStyle.BackColor = Theme.Surface;
             grid.EnableHeadersVisualStyles = false;
             return grid;
         }
@@ -126,31 +146,49 @@ namespace MN_Barcode.WinForms
             DateTime start = _dtStart.Value.Date;
             DateTime end = _dtEnd.Value.Date.AddDays(1).AddSeconds(-1);
 
-            // Satışlar
             _gridSales.Rows.Clear();
-            var sales = _saleService.GetSalesHistory(start, end);
-            foreach (var s in sales)
+            var details = _saleService.GetSalesHistoryWithDetails(start, end);
+
+            var grouped = details.GroupBy(x => x.Sale.TransactionCode).ToList();
+            int colorIndex = 0;
+
+            foreach (var group in grouped)
             {
-                string paymentText = s.PaymentType switch
+                Color rowColor = RowColors[colorIndex % RowColors.Length];
+                colorIndex++;
+
+                foreach (var detail in group)
                 {
-                    PaymentType.Nakit => "Nakit",
-                    PaymentType.KrediKarti => "Kredi Kartı",
-                    PaymentType.Iade => "İade",
-                    _ => s.PaymentType.ToString()
-                };
-                _gridSales.Rows.Add(s.Id, s.CreatedDate?.ToString("dd.MM.yyyy HH:mm"), s.TransactionCode, paymentText, s.TotalAmount);
+                    int rowIdx = _gridSales.Rows.Add(
+                        detail.Sale.TransactionCode,
+                        detail.Sale.CreatedDate?.ToString("dd.MM.yyyy HH:mm"),
+                        detail.Product?.Barcode ?? "",
+                        detail.Product?.Name ?? "",
+                        detail.Quantity,
+                        detail.TotalPrice
+                    );
+
+                    // Satırın arka plan rengini ayarla
+                    for (int i = 0; i < _gridSales.Columns.Count; i++)
+                    {
+                        _gridSales.Rows[rowIdx].Cells[i].Style.BackColor = rowColor;
+                    }
+                }
             }
 
             // Toplam Ciro
-            decimal totalRev = sales.Sum(x => x.TotalAmount);
+            decimal totalRev = details.Sum(x => x.TotalPrice);
             _lblTotalRevenue.Text = $"Toplam: {totalRev:C2}";
+        }
 
-            // Top Selling
-            _gridTopSelling.Rows.Clear();
-            var top = _saleService.GetTopSellingProducts(10, start, end);
-            foreach (var t in top)
+        private void FilterData()
+        {
+            string searchText = _txtSearch.Text.ToLower();
+            foreach (DataGridViewRow row in _gridSales.Rows)
             {
-                _gridTopSelling.Rows.Add(t.ProductName, t.TotalQuantity, t.TotalRevenue);
+                string barcode = row.Cells["Barcode"].Value?.ToString()?.ToLower() ?? "";
+                string product = row.Cells["Product"].Value?.ToString()?.ToLower() ?? "";
+                row.Visible = barcode.Contains(searchText) || product.Contains(searchText);
             }
         }
     }
