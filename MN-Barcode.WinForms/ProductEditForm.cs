@@ -357,7 +357,7 @@ namespace MN_Barcode.WinForms
             _product.Barcode       = string.IsNullOrWhiteSpace(_txtBarcode.Text) ? null : _txtBarcode.Text.Trim();
             _product.BuyingPrice   = buyPrice;
             _product.SellingPrice  = sellPrice;
-            _product.StockQuantity = stock;
+            _product.StockQuantity = Math.Max(0, stock);   // Stok negatif olamaz
             _product.Unit          = _cmbUnit.SelectedItem?.ToString() ?? "Adet";
             _product.CategoryId    = (_cmbCategory.SelectedIndex > 0 && _cmbCategory.SelectedItem is Category c) ? c.Id : (int?)null;
 

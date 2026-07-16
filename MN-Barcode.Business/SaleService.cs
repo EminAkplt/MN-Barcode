@@ -35,7 +35,11 @@ namespace MN_Barcode.Business
                     item.SaleId = sale.Id;
                     context.SaleDetails.Add(item);
                     if (products.TryGetValue(item.ProductId, out var product))
-                        product.StockQuantity -= item.Quantity;
+                    {
+                        // Stok hiçbir zaman eksiye düşmesin: satışta stoktan düş,
+                        // iadede (Quantity negatif) geri ekle; alt sınır 0.
+                        product.StockQuantity = System.Math.Max(0, product.StockQuantity - item.Quantity);
+                    }
                 }
 
                 context.SaveChanges();
