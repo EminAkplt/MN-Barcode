@@ -38,96 +38,101 @@ namespace MN_Barcode.WinForms
             this.Dock = DockStyle.Fill;
             this.FormBorderStyle = FormBorderStyle.None;
 
-            // ====== TOP SECTION: Title + Summary ======
-            Panel topSection = new Panel { Dock = DockStyle.Top, Height = 60, BackColor = Color.White, Padding = new Padding(24, 16, 24, 16) };
-            this.Controls.Add(topSection);
-            topSection.Paint += (s, e) =>
+            // ====== HEADER: Title + Summary + Filter ======
+            Panel header = new Panel { Dock = DockStyle.Top, Height = 140, BackColor = Color.White };
+            this.Controls.Add(header);
+            header.Paint += (s, e) =>
             {
                 using (var pen = new Pen(Color.FromArgb(226, 232, 240), 1))
-                    e.Graphics.DrawLine(pen, 0, topSection.Height - 1, topSection.Width, topSection.Height - 1);
+                    e.Graphics.DrawLine(pen, 0, header.Height - 1, header.Width, header.Height - 1);
             };
 
-            Label title = new Label { Text = "Satış Geçmişi", Font = new Font("Segoe UI", 18, FontStyle.Bold), ForeColor = Color.FromArgb(15, 23, 42), AutoSize = true, Location = new Point(0, 0) };
-            topSection.Controls.Add(title);
+            // Title + Total (top row)
+            Label title = new Label { Text = "Satış Geçmişi", Font = new Font("Segoe UI", 18, FontStyle.Bold), ForeColor = Color.FromArgb(15, 23, 42), AutoSize = true };
+            title.Location = new Point(24, 12);
+            header.Controls.Add(title);
 
-            _lblTotalRevenue = new Label { Text = "Toplam: ₺0.00", Font = new Font("Segoe UI", 14, FontStyle.Bold), ForeColor = Color.FromArgb(22, 163, 74), AutoSize = true, Dock = DockStyle.Right };
-            topSection.Controls.Add(_lblTotalRevenue);
+            _lblTotalRevenue = new Label { Text = "Toplam: ₺0.00", Font = new Font("Segoe UI", 14, FontStyle.Bold), ForeColor = Color.FromArgb(22, 163, 74), AutoSize = true };
+            _lblTotalRevenue.Location = new Point(header.Width - 250, 12);
+            header.Controls.Add(_lblTotalRevenue);
 
-            // ====== FILTER SECTION ======
-            Panel filterSection = new Panel { Dock = DockStyle.Top, Height = 80, BackColor = Color.White, Padding = new Padding(24, 16, 24, 16) };
-            this.Controls.Add(filterSection);
+            // Filter label
+            Label filterLabel = new Label { Text = "Filtreleme:", Font = new Font("Segoe UI", 10, FontStyle.Regular), ForeColor = Color.FromArgb(100, 116, 139), AutoSize = true };
+            filterLabel.Location = new Point(24, 50);
+            header.Controls.Add(filterLabel);
 
-            Label filterLabel = new Label { Text = "Filtreleme", Font = new Font("Segoe UI", 11, FontStyle.Bold), ForeColor = Color.FromArgb(30, 41, 59), AutoSize = true, Location = new Point(0, 0) };
-            filterSection.Controls.Add(filterLabel);
-
-            FlowLayoutPanel filterControls = new FlowLayoutPanel
-            {
-                Dock = DockStyle.Bottom,
-                FlowDirection = FlowDirection.LeftToRight,
-                WrapContents = false,
-                AutoSize = true,
-                BackColor = Color.Transparent,
-                Padding = new Padding(0, 8, 0, 0)
-            };
-            filterSection.Controls.Add(filterControls);
-
-            filterControls.Controls.Add(new Label { Text = "Tarih:", Font = new Font("Segoe UI", 10), ForeColor = Color.FromArgb(100, 116, 139), AutoSize = true, Margin = new Padding(0, 8, 10, 0) });
-
+            // Date pickers + search
             _dtStart = new DateTimePicker
             {
                 Format = DateTimePickerFormat.Short,
-                Width = 130,
-                Height = 36,
+                Width = 120,
+                Height = 32,
                 Font = new Font("Segoe UI", 10),
                 Value = DateTime.Today.AddDays(-7),
                 BackColor = Color.FromArgb(248, 250, 252),
                 ForeColor = Color.FromArgb(30, 41, 59)
             };
             _dtStart.ValueChanged += (s, e) => LoadData();
-            filterControls.Controls.Add(_dtStart);
+            _dtStart.Location = new Point(120, 48);
+            header.Controls.Add(_dtStart);
 
-            filterControls.Controls.Add(new Label { Text = "–", Font = new Font("Segoe UI", 10), ForeColor = Color.FromArgb(100, 116, 139), AutoSize = true, Margin = new Padding(10, 8, 10, 0) });
+            Label sep = new Label { Text = "–", Font = new Font("Segoe UI", 10), ForeColor = Color.FromArgb(100, 116, 139), AutoSize = true };
+            sep.Location = new Point(250, 54);
+            header.Controls.Add(sep);
 
             _dtEnd = new DateTimePicker
             {
                 Format = DateTimePickerFormat.Short,
-                Width = 130,
-                Height = 36,
+                Width = 120,
+                Height = 32,
                 Font = new Font("Segoe UI", 10),
                 Value = DateTime.Today,
                 BackColor = Color.FromArgb(248, 250, 252),
                 ForeColor = Color.FromArgb(30, 41, 59)
             };
             _dtEnd.ValueChanged += (s, e) => LoadData();
-            filterControls.Controls.Add(_dtEnd);
+            _dtEnd.Location = new Point(270, 48);
+            header.Controls.Add(_dtEnd);
 
-            // Search kutusu
             _txtSearch = new TextBox
             {
-                Width = 250,
-                Height = 36,
+                Width = 260,
+                Height = 32,
                 Font = new Font("Segoe UI", 10),
-                Margin = new Padding(20, 0, 0, 0),
-                ForeColor = Color.FromArgb(100, 116, 139)
+                ForeColor = Color.FromArgb(100, 116, 139),
+                BackColor = Color.FromArgb(248, 250, 252)
             };
-            _txtSearch.GotFocus += (s, e) => { if (_txtSearch.Text == "Barkod veya ürün adı yazın...") { _txtSearch.Text = ""; _txtSearch.ForeColor = Color.FromArgb(30, 41, 59); } };
-            _txtSearch.LostFocus += (s, e) => { if (_txtSearch.Text == "") { _txtSearch.Text = "Barkod veya ürün adı yazın..."; _txtSearch.ForeColor = Color.FromArgb(100, 116, 139); } };
+            _txtSearch.GotFocus += (s, e) =>
+            {
+                if (_txtSearch.Text == "Barkod veya ürün adı yazın...")
+                {
+                    _txtSearch.Text = "";
+                    _txtSearch.ForeColor = Color.FromArgb(30, 41, 59);
+                }
+            };
+            _txtSearch.LostFocus += (s, e) =>
+            {
+                if (_txtSearch.Text == "")
+                {
+                    _txtSearch.Text = "Barkod veya ürün adı yazın...";
+                    _txtSearch.ForeColor = Color.FromArgb(100, 116, 139);
+                }
+            };
             _txtSearch.Text = "Barkod veya ürün adı yazın...";
             _txtSearch.TextChanged += (s, e) => FilterData();
-            filterControls.Controls.Add(_txtSearch);
+            _txtSearch.Location = new Point(410, 48);
+            header.Controls.Add(_txtSearch);
 
-            // ====== CONTENT: Grid ======
-            Panel content = new Panel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(248, 250, 252), Padding = new Padding(24, 16, 24, 24) };
-            this.Controls.Add(content);
-
+            // ====== GRID ======
             _gridSales = CreateGrid();
             _gridSales.Columns.Add("Product", "ÜRÜN ADI"); _gridSales.Columns["Product"].FillWeight = 200;
             _gridSales.Columns.Add("Barcode", "BARKOD"); _gridSales.Columns["Barcode"].Width = 110;
             _gridSales.Columns.Add("SaleId", "FİŞ NO"); _gridSales.Columns["SaleId"].Width = 90;
             _gridSales.Columns.Add("Date", "TARİH"); _gridSales.Columns["Date"].Width = 150;
             _gridSales.Columns.Add("Price", "TUTAR"); _gridSales.Columns["Price"].Width = 110; _gridSales.Columns["Price"].DefaultCellStyle.Format = "C2";
-
-            content.Controls.Add(_gridSales);
+            _gridSales.Dock = DockStyle.Fill;
+            _gridSales.BackgroundColor = Color.FromArgb(248, 250, 252);
+            this.Controls.Add(_gridSales);
         }
 
 
