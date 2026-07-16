@@ -39,7 +39,7 @@ namespace MN_Barcode.WinForms
             this.FormBorderStyle = FormBorderStyle.None;
 
             // HEADER
-            Panel header = new Panel { Dock = DockStyle.Top, Height = 80, BackColor = Theme.Surface, Padding = new Padding(Theme.PagePad, 0, Theme.PagePad, 0) };
+            Panel header = new Panel { Dock = DockStyle.Top, Height = 70, BackColor = Theme.Surface, Padding = new Padding(Theme.PagePad) };
             this.Controls.Add(header);
             header.Paint += (s, e) =>
             {
@@ -47,52 +47,55 @@ namespace MN_Barcode.WinForms
                     e.Graphics.DrawLine(pen, 0, header.Height - 1, header.Width, header.Height - 1);
             };
 
-            Label title = new Label { Text = "İade İşlemleri", Font = Theme.H1, ForeColor = Theme.Danger, AutoSize = true, Location = new Point(Theme.PagePad, 18) };
+            Label title = new Label { Text = "İade İşlemleri", Font = Theme.H1, ForeColor = Theme.Danger, AutoSize = true, Location = new Point(0, 4) };
             header.Controls.Add(title);
 
-            // Sağ taraftaki kontroller
-            FlowLayoutPanel controls = new FlowLayoutPanel { Dock = DockStyle.Right, FlowDirection = FlowDirection.LeftToRight, WrapContents = false, AutoSize = true, BackColor = Color.Transparent, Padding = new Padding(0, 14, 0, 0) };
-            header.Controls.Add(controls);
+            // Tarih filtreleme (başlık altında)
+            FlowLayoutPanel filterRow = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Bottom,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                AutoSize = true,
+                BackColor = Color.Transparent,
+                Padding = new Padding(0, 8, 0, 0)
+            };
+            header.Controls.Add(filterRow);
+
+            filterRow.Controls.Add(new Label { Text = "Tarih:", Font = Theme.Caption, ForeColor = Theme.TextMuted, AutoSize = true, Margin = new Padding(0, 6, 6, 0) });
 
             _dtStart = BuildStyledDateTimePicker(DateTime.Today.AddDays(-30), () => LoadData());
-            controls.Controls.Add(_dtStart);
+            filterRow.Controls.Add(_dtStart);
 
-            controls.Controls.Add(new Label { Text = "–", Font = Theme.Body, ForeColor = Theme.TextMuted, AutoSize = true, Margin = new Padding(6, 10, 6, 0) });
+            filterRow.Controls.Add(new Label { Text = "–", Font = Theme.Body, ForeColor = Theme.TextMuted, AutoSize = true, Margin = new Padding(4, 6, 4, 0) });
 
             _dtEnd = BuildStyledDateTimePicker(DateTime.Today, () => LoadData());
-            controls.Controls.Add(_dtEnd);
+            filterRow.Controls.Add(_dtEnd);
 
-            // Arama kutusu
-            _txtSearch = new TextBox { Width = 120, Height = 32, Font = Theme.Body, Margin = new Padding(8, 0, 0, 0), Text = "Barkod..." };
-            _txtSearch.GotFocus += (s, e) => { if (_txtSearch.Text == "Barkod...") _txtSearch.Text = ""; };
-            _txtSearch.LostFocus += (s, e) => { if (_txtSearch.Text == "") _txtSearch.Text = "Barkod..."; };
+            // Search kutusu
+            _txtSearch = new TextBox { Width = 150, Height = 28, Font = Theme.Body, Margin = new Padding(16, 0, 0, 0), Text = "Ara (Barkod/Ürün)..." };
+            _txtSearch.GotFocus += (s, e) => { if (_txtSearch.Text == "Ara (Barkod/Ürün)...") _txtSearch.Text = ""; };
+            _txtSearch.LostFocus += (s, e) => { if (_txtSearch.Text == "") _txtSearch.Text = "Ara (Barkod/Ürün)..."; };
             _txtSearch.TextChanged += (s, e) => FilterData();
-            controls.Controls.Add(_txtSearch);
+            filterRow.Controls.Add(_txtSearch);
 
             // İÇERİK
             Panel content = new Panel { Dock = DockStyle.Fill, BackColor = Theme.Background, Padding = new Padding(Theme.PagePad) };
             this.Controls.Add(content);
 
-            // Panel başlığı + özet
-            Panel headerPanel = new Panel { Dock = DockStyle.Top, Height = 50, BackColor = Color.Transparent };
-            content.Controls.Add(headerPanel);
-
-            Label panelTitle = new Label { Text = "İade Edilen Ürünler (Her satır = 1 ürün, aynı renk = aynı fiş)", Font = Theme.H2, ForeColor = Theme.TextDark, AutoSize = true, Location = new Point(0, 0) };
-            headerPanel.Controls.Add(panelTitle);
-
-            _lblTotalReturnAmount = new Label { Text = "İade Toplamı: ₺0.00", Font = Theme.H2, ForeColor = Theme.Danger, AutoSize = true, Dock = DockStyle.Right };
-            headerPanel.Controls.Add(_lblTotalReturnAmount);
+            // Özet
+            _lblTotalReturnAmount = new Label { Text = "İade Toplamı: ₺0.00", Font = Theme.H2, ForeColor = Theme.Danger, AutoSize = true, Dock = DockStyle.Top };
+            content.Controls.Add(_lblTotalReturnAmount);
 
             // Grid
             Panel gridPanel = new Panel { Dock = DockStyle.Fill, BackColor = Theme.Surface, Padding = new Padding(0, Theme.Gap, 0, 0) };
             content.Controls.Add(gridPanel);
 
             _gridReturns = CreateGrid();
+            _gridReturns.Columns.Add("Product", "ÜRÜN ADI"); _gridReturns.Columns["Product"].FillWeight = 200;
+            _gridReturns.Columns.Add("Barcode", "BARKOD"); _gridReturns.Columns["Barcode"].Width = 110;
             _gridReturns.Columns.Add("SaleId", "FİŞ NO"); _gridReturns.Columns["SaleId"].Width = 80;
             _gridReturns.Columns.Add("Date", "TARİH"); _gridReturns.Columns["Date"].Width = 140;
-            _gridReturns.Columns.Add("Barcode", "BARCODE"); _gridReturns.Columns["Barcode"].Width = 100;
-            _gridReturns.Columns.Add("Product", "ÜRÜN ADI"); _gridReturns.Columns["Product"].FillWeight = 200;
-            _gridReturns.Columns.Add("Qty", "ADET"); _gridReturns.Columns["Qty"].Width = 60;
             _gridReturns.Columns.Add("Amount", "İADE TUTARI"); _gridReturns.Columns["Amount"].Width = 100; _gridReturns.Columns["Amount"].DefaultCellStyle.Format = "C2";
 
             Panel gridContainer = new Panel { Dock = DockStyle.Fill, Padding = new Padding(1) };
@@ -160,11 +163,10 @@ namespace MN_Barcode.WinForms
                 foreach (var detail in group)
                 {
                     int rowIdx = _gridReturns.Rows.Add(
+                        detail.Product?.Name ?? "",
+                        detail.Product?.Barcode ?? "",
                         detail.Sale.TransactionCode,
                         detail.Sale.CreatedDate?.ToString("dd.MM.yyyy HH:mm"),
-                        detail.Product?.Barcode ?? "",
-                        detail.Product?.Name ?? "",
-                        Math.Abs(detail.Quantity),  // Pozitif olarak göster
                         Math.Abs(detail.TotalPrice) // Pozitif olarak göster
                     );
 
