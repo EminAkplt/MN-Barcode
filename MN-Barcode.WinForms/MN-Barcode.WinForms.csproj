@@ -4,17 +4,51 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net9.0-windows</TargetFramework>
     <RootNamespace>MN_Barcode.WinForms</RootNamespace>
+    <AssemblyName>MN-Barcode</AssemblyName>
     <Nullable>disable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <ApplicationHighDpiMode>SystemAware</ApplicationHighDpiMode>
   </PropertyGroup>
 
-  <!-- appsettings.json her derlemede cikti klasorune kopyalansin ki
-       uygulama calistiginda baglanti cumlesini okuyabilsin. -->
+  <!--
+    ── MUSTERI DAGITIMI ─────────────────────────────────────────────────
+    Tek dosya, .NET gomulu (self-contained): musterinin bilgisayarina .NET
+    kurmaya gerek yok, exe'yi kopyalayip calistirmak yeterli.
+
+    PublishReadyToRun: kod onceden makine diline derlenir. Zayif makinelerde
+    acilis suresini belirgin sekilde kisaltir — asil kazanc burada.
+
+    PublishTrimmed KAPALI olmali: EF Core ve WinForms calisma zamaninda
+    yansima (reflection) kullanir; kirpma tipleri siler ve uygulama
+    calisirken patlar. Boyut kazanci ugruna riske girilmez.
+  -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
+    <PublishReadyToRun>true</PublishReadyToRun>
+    <PublishTrimmed>false</PublishTrimmed>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <SatelliteResourceLanguages>tr;en</SatelliteResourceLanguages>
+    <DebugType>none</DebugType>
+  </PropertyGroup>
+
+  <!--
+    appsettings.json exe'nin YANINDA ayri bir dosya olarak durur.
+    ExcludeFromSingleFile: tek dosya paketine gomulmez; boylece teknik destek
+    musteri bilgisayarinda baglanti cumlesini exe'yi yeniden derlemeden
+    duzenleyebilir. Dosya silinirse BarcodeContext varsayilan LocalDB
+    baglantisina duser, uygulama yine acilir.
+  -->
   <ItemGroup>
     <None Update="appsettings.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </None>
   </ItemGroup>
 

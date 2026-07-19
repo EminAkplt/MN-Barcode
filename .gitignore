@@ -371,3 +371,7 @@ FodyWeavers.xsd
 /errors.txt
 /simple.txt
 /*.log
+
+# Musteriye gonderilen yayin paketi (61 MB tek dosya exe) - depoya girmesin.
+# Uretmek icin: scripts\Yayin-Olustur.ps1
+/yayin/

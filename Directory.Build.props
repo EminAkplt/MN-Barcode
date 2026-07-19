@@ -1,0 +1,36 @@
+<Project>
+
+  <!--
+    Tum projeler icin ortak ayarlar. Her csproj'a tek tek yazmak yerine buradan yonetilir.
+  -->
+  <PropertyGroup>
+    <!-- Urun kimligi: exe ozelliklerinde ve hata kayitlarinda gorunur. -->
+    <Product>MN-Barcode</Product>
+    <Company>MN Yazilim</Company>
+    <Authors>Mehmet Emin AKPOLAT</Authors>
+    <Copyright>Copyright © 2026 MN Yazilim</Copyright>
+
+    <!-- Surum: musteriye gonderilen her yeni yapida artirilmali. -->
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+
+    <!-- Tum projeler ayni .NET surumunu hedeflesin (WinForms kendi TFM'ini ezer). -->
+    <TargetFramework>net9.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+
+    <!-- Derleme uyarilari hatalari gizlemesin ama derlemeyi de durdurmasin. -->
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <!--
+    Musteriye giden pakette hata ayiklama (.pdb) dosyalari bulunmasin;
+    yayin klasoru sadece exe ve appsettings.json'dan olussun.
+  -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+  </PropertyGroup>
+
+</Project>
