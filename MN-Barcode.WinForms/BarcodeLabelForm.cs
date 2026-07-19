@@ -4,6 +4,7 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Printing;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using MN_Barcode.Business;
 using MN_Barcode.Entities;
@@ -28,7 +29,14 @@ namespace MN_Barcode.WinForms
         private static readonly Color ColGreen     = Color.FromArgb(22, 163, 74);
         private static readonly Color ColGreenDark = Color.FromArgb(21, 128, 61);
 
+        /// <summary>Etiket yazıcısı adının saklandığı ayar anahtarı.</summary>
+        private const string KEY_LABEL_PRINTER = "LabelPrinter";
+
+        /// <summary>1 mm = 3.937 birim (yazdırma birimi: 1/100 inch).</summary>
+        private const float MmTo100 = 3.9370079f;
+
         private readonly ProductService _productService;
+        private readonly SettingsService _settingsService;
         private readonly Random _rnd = new Random();
 
         private ComboBox _cmbProduct;
@@ -39,18 +47,28 @@ namespace MN_Barcode.WinForms
         private NumericUpDown _numCount;
         private NumericUpDown _numWidth;
         private NumericUpDown _numHeight;
+        private CheckBox _chkThermal;
         private PictureBox _picPreview;
 
         private readonly PrintDocument _printDoc = new PrintDocument();
         private int _printRemaining;
 
+        /// <summary>Seçili etiket yazıcısı — baskı yolunda veritabanına gidilmemesi için bellekte tutulur.</summary>
+        private string _cachedPrinter;
+
         public BarcodeLabelForm()
         {
             _productService = new ProductService();
+            _settingsService = new SettingsService();
             this.DoubleBuffered = true;
             InitUI();
 
+            // Sayaç her baskı başlangıcında sıfırlanır. Böylece önizleme penceresindeki
+            // yazdır düğmesi de doğru adette etiket basar (aksi halde sayaç önizlemede
+            // tükendiği için hiçbir şey basılmıyordu).
+            _printDoc.BeginPrint += PrintDoc_BeginPrint;
             _printDoc.PrintPage += PrintDoc_PrintPage;
+            RestoreSavedPrinter();
 
             this.Shown += (s, e) =>
             {
@@ -182,7 +200,21 @@ namespace MN_Barcode.WinForms
             _numHeight = new NumericUpDown { Location = new Point(250, y), Width = 100, Font = new Font("Segoe UI", 12), Minimum = 15, Maximum = 120, Value = 30 };
             _numHeight.ValueChanged += (s, e) => RebuildPreview();
             card.Controls.Add(_numHeight);
-            y += _numHeight.Height + rowGap + 8;
+            y += _numHeight.Height + rowGap;
+
+            // Termal mod: etiketi resim olarak değil, TSPL komutu olarak gönderir.
+            _chkThermal = new CheckBox
+            {
+                Text = "Termal etiket yazıcısı (TSPL)",
+                Location = new Point(0, y),
+                AutoSize = true,
+                Checked = true,
+                Font = new Font("Segoe UI", 10),
+                ForeColor = ColText,
+                Cursor = Cursors.Hand
+            };
+            card.Controls.Add(_chkThermal);
+            y += 26 + 8;
 
             // Butonlar
             Button btnPreview = MakeButton("Önizleme", ColBlue, ColBlueDark, new Point(0, y), 170);
@@ -190,8 +222,13 @@ namespace MN_Barcode.WinForms
             card.Controls.Add(btnPreview);
 
             Button btnPrint = MakeButton("Yazdır", ColGreen, ColGreenDark, new Point(188, y), 170);
-            btnPrint.Click += (s, e) => DoPrint();
+            btnPrint.Click += (s, e) => DoPrint(btnPrint);
             card.Controls.Add(btnPrint);
+            y += 46 + 12;
+
+            Button btnPrinter = MakeButton("Yazıcı Ayarları", Color.FromArgb(100, 116, 139), Color.FromArgb(71, 85, 105), new Point(0, y), fieldW);
+            btnPrinter.Click += (s, e) => ChoosePrinter();
+            card.Controls.Add(btnPrinter);
             y += 46 + 12;
 
             Button btnSave = MakeButton("Barkodu Ürüne Kaydet", Color.FromArgb(71, 85, 105), Color.FromArgb(51, 65, 85), new Point(0, y), fieldW);
@@ -437,27 +474,181 @@ namespace MN_Barcode.WinForms
                 MessageBox.Show("Yazdırmadan önce bir barkod girin veya üretin.", "Uyarı", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return false;
             }
+            if (PrinterSettings.InstalledPrinters.Count == 0)
+            {
+                MessageBox.Show("Bilgisayarda kurulu yazıcı bulunamadı.\nEtiket yazıcısının sürücüsünü kurup tekrar deneyin.",
+                    "Yazıcı yok", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
             return true;
+        }
+
+        /// <summary>Daha önce seçilen etiket yazıcısını geri yükler (hâlâ kuruluysa).</summary>
+        private void RestoreSavedPrinter()
+        {
+            string saved = _settingsService.GetSetting(KEY_LABEL_PRINTER);
+            if (string.IsNullOrWhiteSpace(saved)) return;
+            _printDoc.PrinterSettings.PrinterName = saved;
+            if (!_printDoc.PrinterSettings.IsValid)
+                _printDoc.PrinterSettings = new PrinterSettings();   // yazıcı kaldırılmış → varsayılana dön
+        }
+
+        /// <summary>Yazıcı + kağıt (etiket formu) seçimi; seçim kalıcı olarak saklanır.</summary>
+        private void ChoosePrinter()
+        {
+            ApplyPageSettings();
+            using var dlg = new PageSetupDialog
+            {
+                Document = _printDoc,
+                AllowPrinter = true,
+                AllowMargins = true,
+                AllowOrientation = true,
+                AllowPaper = true,
+                EnableMetric = true
+            };
+            if (dlg.ShowDialog(this.FindForm()) != DialogResult.OK) return;
+
+            _cachedPrinter = _printDoc.PrinterSettings.PrinterName;
+            _settingsService.SetSetting(KEY_LABEL_PRINTER, _cachedPrinter);
+            TsplLabelPrinter.ResetConfigCache();   // yeni cihaza ayarlar baştan gitsin
+            MessageBox.Show(
+                $"Etiket yazıcısı kaydedildi:\n{_printDoc.PrinterSettings.PrinterName}\n\n" +
+                $"Kağıt: {_printDoc.DefaultPageSettings.PaperSize.PaperName} " +
+                $"({_printDoc.DefaultPageSettings.PaperSize.Width / MmTo100:0} x {_printDoc.DefaultPageSettings.PaperSize.Height / MmTo100:0} mm)",
+                "Kaydedildi", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        /// <summary>
+        /// Baskı öncesi sayfa ayarlarını etikete uygun hale getirir.
+        /// Etiket yazıcılarında kenar boşluğu yoktur; .NET'in varsayılan 1 inçlik (25 mm)
+        /// boşluğu 50x30 mm'lik bir etiketi tamamen sayfa dışına ittiği için çıktı boş kalır.
+        /// </summary>
+        private void ApplyPageSettings()
+        {
+            var page = _printDoc.DefaultPageSettings;
+            page.Margins = new Margins(0, 0, 0, 0);
+            _printDoc.OriginAtMargins = false;
+
+            // Sürücüde etiket ölçüsüyle eşleşen bir kağıt formu tanımlıysa onu seç.
+            // Eşleşme yoksa kullanıcının/sürücünün ayarına dokunmayız (A4 etiket sayfası
+            // gibi kullanımlar bozulmasın diye).
+            int wantW = (int)Math.Round((double)_numWidth.Value * MmTo100);
+            int wantH = (int)Math.Round((double)_numHeight.Value * MmTo100);
+            PaperSize best = null;
+            int bestDiff = int.MaxValue;
+            try
+            {
+                foreach (PaperSize ps in _printDoc.PrinterSettings.PaperSizes)
+                {
+                    int diff = Math.Abs(ps.Width - wantW) + Math.Abs(ps.Height - wantH);
+                    if (diff < bestDiff) { bestDiff = diff; best = ps; }
+                }
+            }
+            catch { /* bazı sürücüler kağıt listesi vermez */ }
+
+            if (best != null && bestDiff <= 20)   // ~5 mm tolerans
+                page.PaperSize = best;
         }
 
         private void ShowPrintPreview()
         {
             if (!ValidateForPrint()) return;
-            _printRemaining = (int)_numCount.Value;
+            ApplyPageSettings();
             using var dlg = new PrintPreviewDialog { Document = _printDoc, WindowState = FormWindowState.Maximized };
             dlg.ShowDialog(this.FindForm());
         }
 
-        private void DoPrint()
+        private void DoPrint(Button trigger = null)
         {
             if (!ValidateForPrint()) return;
+            if (_chkThermal.Checked) { DoPrintThermal(trigger); return; }
+
             using var dlg = new PrintDialog { Document = _printDoc, UseEXDialog = true };
-            if (dlg.ShowDialog(this.FindForm()) == DialogResult.OK)
+            if (dlg.ShowDialog(this.FindForm()) != DialogResult.OK) return;
+
+            ApplyPageSettings();
+            _settingsService.SetSetting(KEY_LABEL_PRINTER, _printDoc.PrinterSettings.PrinterName);
+            try { _printDoc.Print(); }
+            catch (Exception ex)
             {
-                _printRemaining = (int)_numCount.Value;
-                try { _printDoc.Print(); }
-                catch (Exception ex) { MessageBox.Show("Yazdırma hatası:\n" + ex.Message, "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error); }
+                MessageBox.Show(
+                    $"Yazdırma hatası:\n{ex.Message}\n\nYazıcı: {_printDoc.PrinterSettings.PrinterName}",
+                    "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
+        }
+
+        /// <summary>
+        /// Termal yol: etiketi resim olarak değil, TSPL komutu olarak yazıcıya gönderir.
+        /// Barkodu cihazın kendi motoru çizer — sürücünün kağıt/kenar boşluğu ayarları devre dışı kalır.
+        /// Gönderim arka planda yapılır; kasada kuyruk varken ekran donmaz.
+        /// </summary>
+        private async void DoPrintThermal(Button trigger)
+        {
+            string printer = ResolveThermalPrinter();
+            if (printer == null) return;
+
+            // Değerleri UI iş parçacığında oku — arka plandan kontrol erişimi güvenli değil.
+            string name = _txtName.Text.Trim();
+            string code = _txtBarcode.Text.Trim();
+            string price = TsplLabelPrinter.FormatPrice(_txtPrice.Text);
+            int wMm = (int)_numWidth.Value;
+            int hMm = (int)_numHeight.Value;
+            int copies = (int)_numCount.Value;
+
+            string oldText = trigger?.Text;
+            if (trigger != null) { trigger.Enabled = false; trigger.Text = "Yazdırılıyor…"; }
+
+            try
+            {
+                string error = await Task.Run(() =>
+                    TsplLabelPrinter.Print(printer, name, code, price, wMm, hMm, copies));
+
+                if (error != null)
+                    MessageBox.Show($"Etiket gönderilemedi:\n{error}", "Hata",
+                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                if (trigger != null) { trigger.Enabled = true; trigger.Text = oldText; }
+            }
+        }
+
+        /// <summary>
+        /// Kayıtlı etiket yazıcısını döndürür; yoksa kullanıcıya seçtirir (iptal edilirse null).
+        /// Yazıcı adı bellekte tutulur — her baskıda veritabanına gidilmez (soğuk LocalDB
+        /// erişimi tek başına ~700 ms sürüyordu).
+        /// </summary>
+        private string ResolveThermalPrinter()
+        {
+            if (_cachedPrinter != null) return _cachedPrinter;
+
+            string saved = _settingsService.GetSetting(KEY_LABEL_PRINTER);
+            if (!string.IsNullOrWhiteSpace(saved) && PrinterExists(saved))
+            {
+                _cachedPrinter = saved;
+                return _cachedPrinter;
+            }
+
+            using var dlg = new PrintDialog { UseEXDialog = true, AllowSomePages = false };
+            if (dlg.ShowDialog(this.FindForm()) != DialogResult.OK) return null;
+
+            _cachedPrinter = dlg.PrinterSettings.PrinterName;
+            _settingsService.SetSetting(KEY_LABEL_PRINTER, _cachedPrinter);   // yalnızca değiştiğinde yazılır
+            TsplLabelPrinter.ResetConfigCache();
+            return _cachedPrinter;
+        }
+
+        private static bool PrinterExists(string name)
+        {
+            foreach (string p in PrinterSettings.InstalledPrinters)
+                if (string.Equals(p, name, StringComparison.OrdinalIgnoreCase)) return true;
+            return false;
+        }
+
+        private void PrintDoc_BeginPrint(object sender, PrintEventArgs e)
+        {
+            _printRemaining = (int)_numCount.Value;
+            if (_printRemaining <= 0) e.Cancel = true;
         }
 
         private void PrintDoc_PrintPage(object sender, PrintPageEventArgs e)
@@ -466,26 +657,31 @@ namespace MN_Barcode.WinForms
             g.InterpolationMode = InterpolationMode.HighQualityBicubic;
             g.PixelOffsetMode = PixelOffsetMode.HighQuality;
 
-            float mmTo100 = 3.9370079f;                  // 1 mm = 3.937 (1/100 inch)
-            float labelW = (float)_numWidth.Value * mmTo100;
-            float labelH = (float)_numHeight.Value * mmTo100;
+            float labelW = (float)_numWidth.Value * MmTo100;
+            float labelH = (float)_numHeight.Value * MmTo100;
             float gap = 8f;
 
-            Rectangle area = e.MarginBounds;
-            int cols = Math.Max(1, (int)((area.Width + gap) / (labelW + gap)));
-            int rows = Math.Max(1, (int)((area.Height + gap) / (labelH + gap)));
+            // Kenar boşlukları sıfırlandığı için MarginBounds sayfanın tamamına eşittir.
+            // Yine de (sürücü boşluk dayatırsa) etiket sığmıyorsa tüm sayfayı kullan.
+            RectangleF area = e.MarginBounds;
+            if (area.Width < labelW || area.Height < labelH)
+                area = new RectangleF(0, 0, e.PageBounds.Width, e.PageBounds.Height);
+
+            // İstenen etiket kağıttan büyükse kırpmak yerine sayfaya sığdır.
+            float scale = Math.Min(1f, Math.Min(area.Width / labelW, area.Height / labelH));
+            float lw = labelW * scale;
+            float lh = labelH * scale;
+
+            int cols = Math.Max(1, (int)((area.Width + gap) / (lw + gap)));
+            int rows = Math.Max(1, (int)((area.Height + gap) / (lh + gap)));
             int perPage = cols * rows;
 
-            int drawn = 0;
             for (int idx = 0; idx < perPage && _printRemaining > 0; idx++)
             {
-                int cx = idx % cols;
-                int cy = idx / cols;
-                float x = area.Left + cx * (labelW + gap);
-                float y = area.Top + cy * (labelH + gap);
-                RenderLabel(g, new RectangleF(x, y, labelW, labelH), true);
+                float x = area.Left + (idx % cols) * (lw + gap);
+                float y = area.Top + (idx / cols) * (lh + gap);
+                RenderLabel(g, new RectangleF(x, y, lw, lh), true);
                 _printRemaining--;
-                drawn++;
             }
 
             e.HasMorePages = _printRemaining > 0;

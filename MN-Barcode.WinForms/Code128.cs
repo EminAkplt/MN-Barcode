@@ -76,6 +76,11 @@ namespace MN_Barcode.WinForms
             float unit = rect.Width / totalUnits;
             using var brush = new SolidBrush(barColor ?? Color.Black);
 
+            // Barlar keskin olmalı: yumuşatma (antialias) düşük çözünürlüklü termal
+            // yazıcılarda bar kenarlarını grileştirir ve okuyucu barkodu okuyamaz.
+            var prevSmoothing = g.SmoothingMode;
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
+
             float x = rect.X;
             bool bar = true; // ilk eleman bar
             foreach (char d in modules)
@@ -87,6 +92,8 @@ namespace MN_Barcode.WinForms
                 x += width;
                 bar = !bar;
             }
+
+            g.SmoothingMode = prevSmoothing;
         }
 
         /// <summary>Barkodu bir Bitmap olarak üretir (önizleme/kaydetme için).</summary>
