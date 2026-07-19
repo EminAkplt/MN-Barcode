@@ -389,11 +389,29 @@ namespace MN_Barcode.WinForms
         /// </summary>
         private void ShowFormCached(string key, Func<Form> formCreator)
         {
-            if (!_formCache.ContainsKey(key))
+            bool ilkOlusturma = !_formCache.ContainsKey(key);
+            if (ilkOlusturma)
             {
                 _formCache[key] = formCreator();
             }
-            ShowForm(_formCache[key], isCached: true);
+
+            Form form = _formCache[key];
+            ShowForm(form, isCached: true);
+
+            // Form.Shown yalnızca ilk gösterimde tetiklenir. Önbellekten gelen ekran
+            // verilerini bir daha yüklemiyordu: sabah açılan Ana Sayfa, gün boyu satış
+            // yapılmasına rağmen ₺0 ciro göstermeye devam ediyordu. Tekrar açılışta tazele.
+            if (!ilkOlusturma && form is IEkranYenileme yenilenebilir)
+            {
+                try
+                {
+                    yenilenebilir.EkraniYenile();
+                }
+                catch (Exception ex)
+                {
+                    AppLogger.Yaz($"Ekran yenilenemedi: {key}", ex);
+                }
+            }
         }
 
         /// <summary>

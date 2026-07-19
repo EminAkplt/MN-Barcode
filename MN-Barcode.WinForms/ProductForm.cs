@@ -8,7 +8,7 @@ using System.Linq;
 
 namespace MN_Barcode.WinForms
 {
-    public partial class ProductForm : Form
+    public partial class ProductForm : Form, IEkranYenileme
     {
         // ── Klasik/açık palet (Satış Geçmişi & İade sayfalarıyla uyumlu) ──
         private static readonly Color ColBg       = Color.FromArgb(245, 247, 250);
@@ -25,8 +25,22 @@ namespace MN_Barcode.WinForms
         private static readonly Color ColAmber     = Color.FromArgb(217, 119, 6);
         private static readonly Color ColRed       = Color.FromArgb(220, 38, 38);
 
+        /// <summary>
+        /// Izgara buton hücrelerinin yazı tipi.
+        ///
+        /// Eskiden CellFormatting içinde her seferinde "new Font(...)" ile üretiliyordu.
+        /// CellFormatting her hücre için, her yeniden çizimde tetiklenir; listede
+        /// gezinmek saniyede binlerce GDI font tanıtıcısı ayırıp hiçbirini bırakmıyordu.
+        /// Uzun bir mesai sonunda GDI tanıtıcıları tükenip arayüz bozuluyordu.
+        /// Tek statik örnek yeterli — hiç ayırma yapılmaz.
+        /// </summary>
+        private static readonly Font GridButonFont = new Font("Segoe UI", 9.5f, FontStyle.Bold);
+
         private ProductService _productService;
         private CategoryService _categoryService;
+
+        /// <summary>Arama kutusunu geciktiren zamanlayıcı — her harfte sorgu atılmaz.</summary>
+        private System.Windows.Forms.Timer _searchTimer;
 
         private Panel _productPanel;
         private Panel _categoryPanel;
@@ -250,7 +264,12 @@ namespace MN_Barcode.WinForms
                 BorderStyle = BorderStyle.FixedSingle,
                 Margin = new Padding(0, 4, 0, 0)
             };
-            _txtSearch.TextChanged += (s, e) => LoadProducts();
+            // Her tuş vuruşunda sorgu atmak yerine yazma bitince tek sorgu.
+            // "peynir" yazmak eskiden 6 ayrı LIKE '%..%' taraması + 6 tam ızgara
+            // yeniden inşası demekti; arayüz "Yanıt vermiyor" duruma düşüyordu.
+            _searchTimer = new System.Windows.Forms.Timer { Interval = 300 };
+            _searchTimer.Tick += (s, e) => { _searchTimer.Stop(); LoadProducts(); };
+            _txtSearch.TextChanged += (s, e) => { _searchTimer.Stop(); _searchTimer.Start(); };
             flow.Controls.Add(_txtSearch);
 
             flow.Controls.Add(new Label
@@ -521,16 +540,38 @@ namespace MN_Barcode.WinForms
             _cmbCategory.SelectedIndex = 0;
         }
 
+        /// <summary>Önbellekten tekrar açıldığında verileri tazeler (bkz. IEkranYenileme).</summary>
+        public void EkraniYenile()
+        {
+            LoadCategoryDropdown();
+            LoadProducts();
+            LoadCategories();
+        }
+
         private void LoadProducts()
         {
-            _gridProducts.Rows.Clear();
-            var list = _productService.GetProducts(_txtSearch.Text.Trim());
+            // Kategori süzgeci veritabanında uygulanır. Eskiden tüm ürünler çekilip
+            // bellekte süzülüyordu — 20 ürünlük bir kategori için tüm katalog taşınıyordu.
+            string kategori = _cmbCategory.SelectedIndex > 0
+                ? _cmbCategory.SelectedItem?.ToString() ?? ""
+                : "";
 
-            if (_cmbCategory.SelectedIndex > 0)
+            List<Product> list;
+            try
             {
-                string cat = _cmbCategory.SelectedItem.ToString();
-                list = list.Where(p => p.Category?.Name == cat).ToList();
+                list = _productService.GetProducts(_txtSearch.Text.Trim(), kategori);
             }
+            catch (Exception ex)
+            {
+                AppLogger.Yaz("Ürün listesi yüklenemedi", ex);
+                MessageBox.Show("Ürün listesi yüklenemedi. Ayrıntı hata kaydına yazıldı.",
+                    "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            // Satırlar eklenirken her eklemede yeniden yerleşim/çizim yapılmasın.
+            _gridProducts.SuspendLayout();
+            _gridProducts.Rows.Clear();
 
             foreach (var p in list)
             {
@@ -544,6 +585,8 @@ namespace MN_Barcode.WinForms
                     p.StockQuantity.ToString("N0")
                 );
             }
+
+            _gridProducts.ResumeLayout();
             _lblCount.Text = $"{list.Count} ürün";
         }
 
@@ -616,7 +659,7 @@ namespace MN_Barcode.WinForms
                 e.CellStyle.BackColor = ColBlue;
                 e.CellStyle.ForeColor = Color.White;
                 e.CellStyle.SelectionBackColor = ColBlueDark;
-                e.CellStyle.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
+                e.CellStyle.Font = GridButonFont;
             }
             // SİL BUTON - KIRMIZI (kolon 8)
             else if (e.ColumnIndex == 8)
@@ -624,7 +667,7 @@ namespace MN_Barcode.WinForms
                 e.CellStyle.BackColor = ColRed;
                 e.CellStyle.ForeColor = Color.White;
                 e.CellStyle.SelectionBackColor = Color.FromArgb(185, 28, 28);
-                e.CellStyle.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
+                e.CellStyle.Font = GridButonFont;
             }
         }
 

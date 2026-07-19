@@ -13,8 +13,11 @@ namespace MN_Barcode.WinForms
     /// Üstte başlık + toplam, altında tarih filtresi + arama, en altta liste.
     /// Her ürün ayrı satır; aynı fişe ait ürünler aynı renkle gruplanır.
     /// </summary>
-    public class SalesHistoryForm : Form
+    public class SalesHistoryForm : Form, IEkranYenileme
     {
+        /// <summary>Önbellekten tekrar açıldığında verileri tazeler (bkz. IEkranYenileme).</summary>
+        public void EkraniYenile() => LoadData();
+
         private const string SearchHint = "Barkod veya ürün adı ara...";
 
         // Klasik/açık palet

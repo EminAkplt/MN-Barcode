@@ -17,8 +17,11 @@ namespace MN_Barcode.WinForms
     /// döviz kuru widget'ı (her açılışta internete gidip ekranı bekletiyordu)
     /// bilinçli olarak kaldırıldı. Tüm renk/font/boşluk değerleri Theme'den gelir.
     /// </summary>
-    public class HomeDashboardForm : Form
+    public class HomeDashboardForm : Form, IEkranYenileme
     {
+        /// <summary>Önbellekten tekrar açıldığında verileri tazeler (bkz. IEkranYenileme).</summary>
+        public void EkraniYenile() => LoadData();
+
         private readonly ProductService _productService;
         private readonly SaleService _saleService;
 

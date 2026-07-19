@@ -10,8 +10,11 @@ namespace MN_Barcode.WinForms
     /// STOK DASHBOARD — sade, klasik tema.
     /// Solda en çok satılan ürünler, sağda stoğu azalan ürünler.
     /// </summary>
-    public class StockDashboardForm : Form
+    public class StockDashboardForm : Form, IEkranYenileme
     {
+        /// <summary>Önbellekten tekrar açıldığında verileri tazeler (bkz. IEkranYenileme).</summary>
+        public void EkraniYenile() => LoadData();
+
         private static readonly Color ColBg       = Color.FromArgb(245, 247, 250);
         private static readonly Color ColSurface  = Color.White;
         private static readonly Color ColBorder   = Color.FromArgb(214, 221, 230);

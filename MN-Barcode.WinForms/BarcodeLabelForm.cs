@@ -56,6 +56,18 @@ namespace MN_Barcode.WinForms
         /// <summary>Seçili etiket yazıcısı — baskı yolunda veritabanına gidilmemesi için bellekte tutulur.</summary>
         private string _cachedPrinter;
 
+        /// <summary>Önizleme yenilemesini geciktiren zamanlayıcı (her tuşta değil, yazma bitince çizer).</summary>
+        private System.Windows.Forms.Timer _previewTimer;
+
+        /// <summary>Etiket metinlerinin ortalama biçimi — her çizimde yeniden üretilmez.</summary>
+        private static readonly StringFormat FmtCenter = new StringFormat
+        {
+            Alignment = StringAlignment.Center,
+            LineAlignment = StringAlignment.Center,
+            Trimming = StringTrimming.EllipsisCharacter,
+            FormatFlags = StringFormatFlags.NoWrap
+        };
+
         public BarcodeLabelForm()
         {
             _productService = new ProductService();
@@ -69,6 +81,10 @@ namespace MN_Barcode.WinForms
             _printDoc.BeginPrint += PrintDoc_BeginPrint;
             _printDoc.PrintPage += PrintDoc_PrintPage;
             RestoreSavedPrinter();
+
+            // Yazma durduktan 150 ms sonra tek sefer çizer — her tuşta değil.
+            _previewTimer = new System.Windows.Forms.Timer { Interval = 150 };
+            _previewTimer.Tick += (s, e) => { _previewTimer.Stop(); RebuildPreview(); };
 
             this.Shown += (s, e) =>
             {
@@ -152,7 +168,7 @@ namespace MN_Barcode.WinForms
             // Barkod + Üret
             card.Controls.Add(Caption("Barkod", 0, ref y, lblH, gap));
             _txtBarcode = new TextBox { Location = new Point(0, y), Width = 250, Font = new Font("Segoe UI", 12), BorderStyle = BorderStyle.FixedSingle };
-            _txtBarcode.TextChanged += (s, e) => RebuildPreview();
+            _txtBarcode.TextChanged += (s, e) => SchedulePreview();
             card.Controls.Add(_txtBarcode);
 
             Button btnGen = new Button
@@ -175,14 +191,14 @@ namespace MN_Barcode.WinForms
             // Ürün adı
             card.Controls.Add(Caption("Ürün Adı", 0, ref y, lblH, gap));
             _txtName = new TextBox { Location = new Point(0, y), Width = fieldW, Font = new Font("Segoe UI", 12), BorderStyle = BorderStyle.FixedSingle };
-            _txtName.TextChanged += (s, e) => RebuildPreview();
+            _txtName.TextChanged += (s, e) => SchedulePreview();
             card.Controls.Add(_txtName);
             y += _txtName.Height + rowGap;
 
             // Fiyat
             card.Controls.Add(Caption("Fiyat (₺)", 0, ref y, lblH, gap));
             _txtPrice = new TextBox { Location = new Point(0, y), Width = 170, Font = new Font("Segoe UI", 12), BorderStyle = BorderStyle.FixedSingle };
-            _txtPrice.TextChanged += (s, e) => RebuildPreview();
+            _txtPrice.TextChanged += (s, e) => SchedulePreview();
             card.Controls.Add(_txtPrice);
             y += _txtPrice.Height + rowGap;
 
@@ -193,12 +209,12 @@ namespace MN_Barcode.WinForms
 
             card.Controls.Add(new Label { Text = "Genişlik(mm)", Location = new Point(130, y - 20), AutoSize = true, Font = new Font("Segoe UI", 9), ForeColor = ColMuted });
             _numWidth = new NumericUpDown { Location = new Point(130, y), Width = 100, Font = new Font("Segoe UI", 12), Minimum = 20, Maximum = 150, Value = 50 };
-            _numWidth.ValueChanged += (s, e) => RebuildPreview();
+            _numWidth.ValueChanged += (s, e) => SchedulePreview();
             card.Controls.Add(_numWidth);
 
             card.Controls.Add(new Label { Text = "Yükseklik(mm)", Location = new Point(250, y - 20), AutoSize = true, Font = new Font("Segoe UI", 9), ForeColor = ColMuted });
             _numHeight = new NumericUpDown { Location = new Point(250, y), Width = 100, Font = new Font("Segoe UI", 12), Minimum = 15, Maximum = 120, Value = 30 };
-            _numHeight.ValueChanged += (s, e) => RebuildPreview();
+            _numHeight.ValueChanged += (s, e) => SchedulePreview();
             card.Controls.Add(_numHeight);
             y += _numHeight.Height + rowGap;
 
@@ -391,16 +407,44 @@ namespace MN_Barcode.WinForms
             return _txtPrice.Text.Trim();
         }
 
+        /// <summary>
+        /// Önizlemeyi geciktirmeli olarak yeniler.
+        ///
+        /// Her tuş vuruşunda anında yeniden çizmek, 150x120 mm'lik bir etikette
+        /// 1800x1440x4 ≈ 10 MB'lık bitmap ayırıyordu. 13 haneli bir barkod yazmak
+        /// ~130 MB'lık büyük nesne yığını (LOH) çöpü üretip Gen2 toplamalarını
+        /// tetikliyor, 4 GB'lık bir makinede saniyelerce donmaya yol açıyordu.
+        /// Yazma durduktan 150 ms sonra tek sefer çizilir.
+        /// </summary>
+        private void SchedulePreview()
+        {
+            if (_previewTimer == null) return;
+            _previewTimer.Stop();
+            _previewTimer.Start();
+        }
+
         private void RebuildPreview()
         {
             if (_picPreview == null) return;
-            int wPx = (int)(_numWidth.Value * 12);   // 12 px/mm — baskı kalitesinde
-            int hPx = (int)(_numHeight.Value * 12);
+
+            // Önizleme ekranda küçültülerek gösteriliyor; baskı çözünürlüğünde
+            // çizmenin görsel faydası yok. Ekrana yetecek kadar büyük tut.
+            const int MaxKenarPx = 900;
+
+            float mmW = (float)_numWidth.Value;
+            float mmH = (float)_numHeight.Value;
+            float olcek = Math.Min(12f, MaxKenarPx / Math.Max(mmW, mmH));
+
+            int wPx = Math.Max(1, (int)(mmW * olcek));
+            int hPx = Math.Max(1, (int)(mmH * olcek));
+
             var bmp = new Bitmap(wPx, hPx);
             using (var g = Graphics.FromImage(bmp))
                 RenderLabel(g, new RectangleF(0, 0, wPx, hPx), true);
-            _picPreview.Image?.Dispose();
+
+            var eski = _picPreview.Image;
             _picPreview.Image = bmp;
+            eski?.Dispose();          // yenisi atandıktan sonra bırak — çizim sırasında erişim olmasın
         }
 
         // Etiketi verilen dikdörtgene çizer (hem önizleme hem baskıda kullanılır).
@@ -422,7 +466,10 @@ namespace MN_Barcode.WinForms
             string code = _txtBarcode.Text.Trim();
             string price = PriceText();
 
-            var fmtCenter = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter, FormatFlags = StringFormatFlags.NoWrap };
+            // StringFormat eskiden burada her çağrıda üretilip hiç bırakılmıyordu.
+            // RenderLabel hem her önizlemede hem basılan her etiket için çalışır;
+            // 1000 etiket basmak 1000 GDI tanıtıcısı sızdırıyordu. Tek statik örnek yeterli.
+            StringFormat fmtCenter = FmtCenter;
 
             // Ürün adı (üst)
             RectangleF nameR = new RectangleF(inner.X, inner.Y, inner.Width, inner.Height * 0.20f);

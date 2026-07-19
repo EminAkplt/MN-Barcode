@@ -7,8 +7,11 @@ using MN_Barcode.Entities;
 
 namespace MN_Barcode.WinForms
 {
-    public class ExpenseManagerForm : Form
+    public class ExpenseManagerForm : Form, IEkranYenileme
     {
+        /// <summary>Önbellekten tekrar açıldığında verileri tazeler (bkz. IEkranYenileme).</summary>
+        public void EkraniYenile() => LoadData();
+
         private ExpenseService _expenseService;
 
         // Filtre

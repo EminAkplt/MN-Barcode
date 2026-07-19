@@ -13,8 +13,11 @@ namespace MN_Barcode.WinForms
     /// Üstte başlık + iade toplamı, altında tarih filtresi + arama, en altta liste.
     /// Her iade edilen ürün ayrı satır; aynı fişe ait ürünler aynı renkle gruplanır.
     /// </summary>
-    public class ReturnsForm : Form
+    public class ReturnsForm : Form, IEkranYenileme
     {
+        /// <summary>Önbellekten tekrar açıldığında verileri tazeler (bkz. IEkranYenileme).</summary>
+        public void EkraniYenile() => LoadData();
+
         private const string SearchHint = "Barkod veya ürün adı ara...";
 
         // Klasik/açık palet
