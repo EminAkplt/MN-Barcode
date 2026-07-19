@@ -572,11 +572,25 @@ namespace MN_Barcode.WinForms
             }
             else if (_gridProducts.Columns[e.ColumnIndex].Name == "Del")
             {
-                string name = _gridProducts.Rows[e.RowIndex].Cells["Name"].Value.ToString();
+                string name = _gridProducts.Rows[e.RowIndex].Cells["Name"].Value?.ToString() ?? "";
                 if (MessageBox.Show($"'{name}' silinsin mi?", "Onay", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes)
                 {
-                    _productService.Delete(id);
-                    LoadProducts();
+                    try
+                    {
+                        _productService.Delete(id);
+                        LoadProducts();
+                    }
+                    catch (InvalidOperationException ex)
+                    {
+                        // Satış geçmişi olan ürün — silinmesi raporları bozar.
+                        MessageBox.Show(ex.Message, "Silinemez", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    }
+                    catch (Exception ex)
+                    {
+                        AppLogger.Yaz("Ürün silinemedi", ex);
+                        MessageBox.Show("Ürün silinemedi. Ayrıntı hata kaydına yazıldı.",
+                            "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
                 }
             }
         }
@@ -622,9 +636,23 @@ namespace MN_Barcode.WinForms
 
             if (MessageBox.Show($"'{name}' silinsin mi?", "Onay", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes)
             {
-                _categoryService.Delete(id);
-                LoadCategories();
-                LoadCategoryDropdown();
+                try
+                {
+                    _categoryService.Delete(id);
+                    LoadCategories();
+                    LoadCategoryDropdown();
+                }
+                catch (InvalidOperationException ex)
+                {
+                    // İçinde ürün olan kategori — eskiden burada uygulama çöküyordu.
+                    MessageBox.Show(ex.Message, "Silinemez", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+                catch (Exception ex)
+                {
+                    AppLogger.Yaz("Kategori silinemedi", ex);
+                    MessageBox.Show("Kategori silinemedi. Ayrıntı hata kaydına yazıldı.",
+                        "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
             }
         }
 

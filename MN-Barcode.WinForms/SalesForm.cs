@@ -222,7 +222,14 @@ namespace MN_Barcode.WinForms
                 // ARTIK ID=0 OLAN SAHTE ÜRÜN DEĞİL, DB'DEN GERÇEK ÜRÜN GELİYOR.
                 var realProduct = _productService.GetOrCreateQuickProduct(cleanName, barcode, price);
 
-                // 4. Sepete At
+                // 4. Butondaki fiyat güncel mi? Ürün Yönetimi'nden fiyat değiştirilmişse
+                //    buton eski fiyatı gösterip yeni fiyatı tahsil ediyordu — müşteriyle
+                //    fiyat tartışması çıkarır. Yazıyı gerçek fiyata eşitle.
+                bool fiyatliButon = text.Contains('\n');
+                if (fiyatliButon && realProduct != null && realProduct.SellingPrice != price)
+                    btn.Text = $"{cleanName}\n{realProduct.SellingPrice:0.00} ₺";
+
+                // 5. Sepete At
                 AddToCart(realProduct);
             };
 
@@ -232,7 +239,16 @@ namespace MN_Barcode.WinForms
         private void AskManualPrice()
         {
             string input = Interaction.InputBox("Tutarı Giriniz:", "Serbest Tutar", "0");
-            if (decimal.TryParse(input, out decimal price) && price > 0)
+            if (string.IsNullOrWhiteSpace(input)) return;
+
+            // Kültürden bağımsız çözümleme şart: tr-TR'de decimal.TryParse("12.50")
+            // 1250 döndürüyordu ve kasa yanlış tutar tahsil ediyordu.
+            if (!TutarParser.TryParse(input, out decimal price) || price <= 0)
+            {
+                SafeMessageBox("Geçerli bir tutar girin. Örnek: 12,50", "Hatalı tutar", isError: true);
+                return;
+            }
+
             {
                 // Manuel satış için "MANUAL" barkodlu ürünü çağır/oluştur
                 var genericProduct = _productService.GetOrCreateQuickProduct("Serbest Ürün", "MANUAL", 0);

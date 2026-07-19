@@ -92,15 +92,43 @@ namespace MN_Barcode.Business
         }
 
         // 6. SİLME
+        /// <summary>
+        /// Ürünü siler.
+        ///
+        /// DİKKAT: SaleDetails → Products ilişkisi veritabanında Cascade tanımlı.
+        /// Yani bu ürünü silmek, ürünün geçmiş SATIŞ SATIRLARINI da siler.
+        /// Satış başlıklarındaki toplam tutarlar yerinde kalacağı için defterler
+        /// tutmaz hale gelir ve geri dönüşü olmaz.
+        ///
+        /// Bu yüzden satış geçmişi olan ürünün silinmesine izin verilmez.
+        /// Kullanılmayan ürün için "pasife alma" tercih edilmelidir.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">Ürünün satış geçmişi varsa.</exception>
         public void Delete(int id)
         {
             using var context = new BarcodeContext();
+
             var product = context.Products.Find(id);
-            if (product != null)
+            if (product == null) return;
+
+            int satisSatiri = context.SaleDetails.Count(d => d.ProductId == id);
+            if (satisSatiri > 0)
             {
-                context.Products.Remove(product);
-                context.SaveChanges();
+                throw new InvalidOperationException(
+                    $"'{product.Name}' ürünü silinemez: {satisSatiri} adet satış kaydı var.\n\n" +
+                    "Bu ürünü silmek geçmiş satış detaylarını da siler ve raporlarınız tutmaz hale gelir.\n\n" +
+                    "Ürünü kullanmayacaksanız stoğunu 0 yapın veya adını değiştirip pasife alın.");
             }
+
+            context.Products.Remove(product);
+            context.SaveChanges();
+        }
+
+        /// <summary>Ürünün silinip silinemeyeceğini önceden söyler (arayüzde buton gizlemek için).</summary>
+        public bool SilinebilirMi(int id)
+        {
+            using var context = new BarcodeContext();
+            return !context.SaleDetails.Any(d => d.ProductId == id);
         }
 
         // 7. STOĞU AZALAN ÜRÜNLER (Dashboard için)

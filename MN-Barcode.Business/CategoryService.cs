@@ -36,16 +36,32 @@ namespace MN_Barcode.Business
             context.SaveChanges();
         }
 
-        // Kategori sil (id ile).
+        /// <summary>
+        /// Kategoriyi siler.
+        ///
+        /// İçinde ürün bulunan kategori silinemez: Product.CategoryId yabancı anahtarı
+        /// Cascade tanımlı olmadığı için veritabanı DELETE'i reddediyor ve fırlayan
+        /// DbUpdateException uygulamayı çökertiyordu. Artık önceden kontrol edilip
+        /// anlaşılır bir hata veriliyor.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">Kategoride ürün varsa.</exception>
         public void Delete(int id)
         {
             using var context = new BarcodeContext();
+
             var cat = context.Categories.Find(id);
-            if (cat != null)
+            if (cat == null) return;
+
+            int urunSayisi = context.Products.Count(p => p.CategoryId == id);
+            if (urunSayisi > 0)
             {
-                context.Categories.Remove(cat);
-                context.SaveChanges();
+                throw new InvalidOperationException(
+                    $"'{cat.Name}' kategorisi silinemez: içinde {urunSayisi} ürün var.\n\n" +
+                    "Önce bu ürünleri başka bir kategoriye taşıyın veya silin.");
             }
+
+            context.Categories.Remove(cat);
+            context.SaveChanges();
         }
 
         // Kategoriyi ID'ye göre getir.
