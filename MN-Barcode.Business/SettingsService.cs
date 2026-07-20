@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using MN_Barcode.DataAccess;
 using MN_Barcode.Entities;
 using System.Linq;
@@ -30,27 +31,23 @@ namespace MN_Barcode.Business
         private void EnsureDefaultSettings()
         {
             using var context = new BarcodeContext();
-            bool hasChanges = false;
+            bool degisiklikVar = false;
 
-            if (!context.Settings.Any(s => s.SettingKey == KEY_USER_PASSWORD))
+            foreach (string anahtar in new[] { KEY_USER_PASSWORD, KEY_ADMIN_PASSWORD, KEY_REPORTS_PASSWORD })
             {
-                context.Settings.Add(new SystemSettings { SettingKey = KEY_USER_PASSWORD, SettingValue = DEFAULT_PASSWORD });
-                hasChanges = true;
+                if (context.Settings.Any(s => s.SettingKey == anahtar)) continue;
+
+                // Varsayılan şifre de hash'lenerek saklanır — hiçbir şifre
+                // veritabanına düz metin yazılmaz.
+                context.Settings.Add(new SystemSettings
+                {
+                    SettingKey = anahtar,
+                    SettingValue = PasswordHasher.Hash(DEFAULT_PASSWORD)
+                });
+                degisiklikVar = true;
             }
 
-            if (!context.Settings.Any(s => s.SettingKey == KEY_ADMIN_PASSWORD))
-            {
-                context.Settings.Add(new SystemSettings { SettingKey = KEY_ADMIN_PASSWORD, SettingValue = DEFAULT_PASSWORD });
-                hasChanges = true;
-            }
-
-            if (!context.Settings.Any(s => s.SettingKey == KEY_REPORTS_PASSWORD))
-            {
-                context.Settings.Add(new SystemSettings { SettingKey = KEY_REPORTS_PASSWORD, SettingValue = DEFAULT_PASSWORD });
-                hasChanges = true;
-            }
-
-            if (hasChanges)
+            if (degisiklikVar)
                 context.SaveChanges();
         }
 
@@ -78,34 +75,44 @@ namespace MN_Barcode.Business
             context.SaveChanges();
         }
 
-        public bool ValidateUserPassword(string password)
+        public bool ValidateUserPassword(string password)    => Dogrula(KEY_USER_PASSWORD, password);
+        public bool ValidateAdminPassword(string password)   => Dogrula(KEY_ADMIN_PASSWORD, password);
+        public bool ValidateReportsPassword(string password) => Dogrula(KEY_REPORTS_PASSWORD, password);
+
+        public void UpdateUserPassword(string newPassword)    => SifreKaydet(KEY_USER_PASSWORD, newPassword);
+        public void UpdateAdminPassword(string newPassword)   => SifreKaydet(KEY_ADMIN_PASSWORD, newPassword);
+        public void UpdateReportsPassword(string newPassword) => SifreKaydet(KEY_REPORTS_PASSWORD, newPassword);
+
+        /// <summary>
+        /// Şifreyi PBKDF2 ile doğrular.
+        ///
+        /// Eskiden düz metin "==" karşılaştırması yapılıyordu ve şifreler veritabanında
+        /// açıkta duruyordu. Mevcut kurulumlardaki düz metin değerler de kabul edilir;
+        /// doğrulama başarılıysa kayıt sessizce hash'e yükseltilir. Böylece güncelleme
+        /// sonrası kimse programa giremez duruma düşmez.
+        /// </summary>
+        private bool Dogrula(string anahtar, string password)
         {
-            return GetSetting(KEY_USER_PASSWORD) == password;
+            if (password == null) return false;
+
+            string saklanan = GetSetting(anahtar);
+            if (string.IsNullOrEmpty(saklanan)) return false;
+
+            if (!PasswordHasher.Verify(password, saklanan)) return false;
+
+            if (PasswordHasher.NeedsUpgrade(saklanan))
+            {
+                try { SetSetting(anahtar, PasswordHasher.Hash(password)); }
+                catch { /* yükseltme başarısızsa giriş yine de geçerli */ }
+            }
+
+            return true;
         }
 
-        public bool ValidateAdminPassword(string password)
+        private void SifreKaydet(string anahtar, string yeniSifre)
         {
-            return GetSetting(KEY_ADMIN_PASSWORD) == password;
-        }
-
-        public bool ValidateReportsPassword(string password)
-        {
-            return GetSetting(KEY_REPORTS_PASSWORD) == password;
-        }
-
-        public void UpdateUserPassword(string newPassword)
-        {
-            SetSetting(KEY_USER_PASSWORD, newPassword);
-        }
-
-        public void UpdateAdminPassword(string newPassword)
-        {
-            SetSetting(KEY_ADMIN_PASSWORD, newPassword);
-        }
-
-        public void UpdateReportsPassword(string newPassword)
-        {
-            SetSetting(KEY_REPORTS_PASSWORD, newPassword);
+            if (string.IsNullOrWhiteSpace(yeniSifre)) return;
+            SetSetting(anahtar, PasswordHasher.Hash(yeniSifre));
         }
 
         /// <summary>
@@ -116,21 +123,24 @@ namespace MN_Barcode.Business
         {
             using var context = new BarcodeContext();
 
-            // Veri tablolarını temizle.
-            context.Products.RemoveRange(context.Products);
-            context.Categories.RemoveRange(context.Categories);
-            context.Expenses.RemoveRange(context.Expenses);
-            context.SaleDetails.RemoveRange(context.SaleDetails);
-            context.Sales.RemoveRange(context.Sales);
+            // Veri tablolarını sil. ExecuteDelete: satırları belleğe çekmeden
+            // tek SQL ile siler. Eskiden tüm tablolar belleğe alınıp satır satır
+            // DELETE üretiliyordu; büyük katalogda bu dakikalar sürebilirdi.
+            // Sıra önemli: önce çocuk tablolar, sonra ebeveynler (FK ihlali olmasın).
+            context.SaleDetails.ExecuteDelete();
+            context.Sales.ExecuteDelete();
+            context.Expenses.ExecuteDelete();
+            context.Products.ExecuteDelete();
+            context.Categories.ExecuteDelete();
 
-            // Şifre ayarlarını varsayılana döndür.
-            var userPwd = context.Settings.FirstOrDefault(s => s.SettingKey == KEY_USER_PASSWORD);
-            var adminPwd = context.Settings.FirstOrDefault(s => s.SettingKey == KEY_ADMIN_PASSWORD);
-            var reportsPwd = context.Settings.FirstOrDefault(s => s.SettingKey == KEY_REPORTS_PASSWORD);
+            // Şifre ayarlarını varsayılana döndür (hash'lenmiş olarak).
+            string varsayilanHash = PasswordHasher.Hash(DEFAULT_PASSWORD);
 
-            if (userPwd != null) userPwd.SettingValue = DEFAULT_PASSWORD;
-            if (adminPwd != null) adminPwd.SettingValue = DEFAULT_PASSWORD;
-            if (reportsPwd != null) reportsPwd.SettingValue = DEFAULT_PASSWORD;
+            foreach (string anahtar in new[] { KEY_USER_PASSWORD, KEY_ADMIN_PASSWORD, KEY_REPORTS_PASSWORD })
+            {
+                var kayit = context.Settings.FirstOrDefault(s => s.SettingKey == anahtar);
+                if (kayit != null) kayit.SettingValue = varsayilanHash;
+            }
 
             context.SaveChanges();
         }

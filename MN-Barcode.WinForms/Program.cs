@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Windows.Forms;
+using MN_Barcode.Business;
 using MN_Barcode.DataAccess;
 using MN_Barcode.Entities;
 
@@ -79,7 +80,9 @@ namespace MN_Barcode.WinForms
                 context.Users.Add(new AppUser
                 {
                     Username = "admin",
-                    Password = "admin123",
+                    // Varsayılan şifre de hash'lenerek saklanır; veritabanına
+                    // hiçbir zaman düz metin şifre yazılmaz.
+                    Password = PasswordHasher.Hash("admin123"),
                     Role = UserRole.Admin
                 });
                 context.SaveChanges();
