@@ -208,6 +208,16 @@ namespace MN_Barcode.Business
         }
 
         /// <summary>
+        /// Bu ürünün daha önce satılıp satılmadığını söyler (iade doğrulaması için).
+        /// Satılmamış ürünün iade edilmesi stoğu haksız yere artırır.
+        /// </summary>
+        public bool UrunSatildiMi(int productId)
+        {
+            using var context = new BarcodeContext();
+            return context.SaleDetails.Any(d => d.ProductId == productId && d.Quantity > 0);
+        }
+
+        /// <summary>
         /// Geçmiş ekranlarında bir seferde gösterilecek en fazla satır sayısı.
         ///
         /// Sınır olmadan yoğun bir dükkânın 7 günlük varsayılan aralığı on binlerce
@@ -365,14 +375,14 @@ namespace MN_Barcode.Business
             DateTime baslangic  = startDate.Date;
             DateTime bitisHaric = endDate.Date.AddDays(1);
 
-            // Satışlar ve iadeler dahil — net günlük ciro hesaplanacak.
-            var allSales = context.Sales
+            // Gruplama VERİTABANINDA yapılır. Eskiden aralıktaki tüm satış kayıtları
+            // belleğe çekilip ("ToList") orada gruplanıyordu; aylık bir aralıkta bu,
+            // binlerce satırı boşuna taşımak demekti. Ana Sayfa her açıldığında
+            // tekrarlandığı için zayıf makinelerde gözle görülür gecikme yaratıyordu.
+            return context.Sales
                 .Where(x => x.CreatedDate >= baslangic
                          && x.CreatedDate < bitisHaric
                          && (x.SaleType == SaleType.Satis || x.SaleType == SaleType.Iade))
-                .ToList();
-
-            return allSales
                 .GroupBy(x => x.CreatedDate!.Value.Date)
                 .Select(g => new DailySalesData
                 {

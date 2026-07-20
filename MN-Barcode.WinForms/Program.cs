@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Windows.Forms;
+using Microsoft.EntityFrameworkCore;
 using MN_Barcode.Business;
 using MN_Barcode.DataAccess;
 using MN_Barcode.Entities;
@@ -89,13 +90,12 @@ namespace MN_Barcode.WinForms
             }
 
             // Stok hiçbir zaman eksi olamaz: geçmişte eksiye düşmüş kayıtları 0'a çek.
-            // Tek sorguda güncellenir — ürün tablosunun tamamı belleğe alınmaz.
-            var negatifler = context.Products.Where(p => p.StockQuantity < 0).ToList();
-            if (negatifler.Count > 0)
-            {
-                foreach (var p in negatifler) p.StockQuantity = 0;
-                context.SaveChanges();
-            }
+            // ExecuteUpdate ile tek SQL cümlesi — kayıtlar belleğe alınmaz.
+            // Her açılışta çalıştığı için maliyeti düşük tutulmalı; eskiden eşleşen
+            // tüm ürünler belleğe çekiliyor ve tek tek güncelleniyordu.
+            context.Products
+                .Where(p => p.StockQuantity < 0)
+                .ExecuteUpdate(s => s.SetProperty(p => p.StockQuantity, 0d));
         }
 
         /// <summary>

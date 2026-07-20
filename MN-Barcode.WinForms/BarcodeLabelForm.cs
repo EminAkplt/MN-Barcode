@@ -339,9 +339,33 @@ namespace MN_Barcode.WinForms
             RebuildPreview();
         }
 
+        /// <summary>
+        /// Mağaza içi kullanım için benzersiz EAN-13 barkod üretir.
+        ///
+        /// Eskiden döngüde 50 kereye kadar GetByBarcode çağrılıyordu ve her çağrı
+        /// KENDİ veritabanı bağlantısını açıyordu. Soğuk LocalDB'de tek erişim
+        /// ~700 ms sürdüğü için en kötü durumda arayüz onlarca saniye kilitleniyordu.
+        ///
+        /// Artık kullanılan barkodlar TEK sorguyla belleğe alınıyor ve adaylar
+        /// bellekte kontrol ediliyor. Ayrıca eski yedek çözüm ("200" + saat) ne
+        /// benzersizdi ne de geçerli bir EAN-13'tü; kontrol hanesi olmadığı için
+        /// bazı okuyucular okuyamıyordu.
+        /// </summary>
         private string GenerateUniqueBarcode()
         {
-            for (int attempt = 0; attempt < 50; attempt++)
+            // Mağaza içi önek "200" ile başlayan mevcut barkodlar — tek sorgu.
+            HashSet<string> kullanilan;
+            try
+            {
+                kullanilan = _productService.GetBarcodesWithPrefix("200");
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Yaz("Mevcut barkodlar okunamadı", ex);
+                kullanilan = new HashSet<string>();
+            }
+
+            for (int deneme = 0; deneme < 200; deneme++)
             {
                 // 200 = mağaza içi kullanım öneki + 9 rastgele hane + EAN-13 kontrol hanesi
                 var digits = new char[12];
@@ -349,10 +373,14 @@ namespace MN_Barcode.WinForms
                 for (int k = 3; k < 12; k++) digits[k] = (char)('0' + _rnd.Next(10));
                 string base12 = new string(digits);
                 string code = base12 + Ean13CheckDigit(base12);
-                if (_productService.GetByBarcode(code) == null)
-                    return code;
+
+                if (!kullanilan.Contains(code)) return code;
             }
-            return "200" + DateTime.Now.ToString("HHmmssfff");
+
+            // Buraya düşmek pratikte imkânsız (milyarda bir), yine de geçerli bir
+            // EAN-13 üretilir: zaman damgasından türetilen 12 hane + kontrol hanesi.
+            string yedek12 = ("200" + DateTime.Now.ToString("MMddHHmmssff")).Substring(0, 12);
+            return yedek12 + Ean13CheckDigit(yedek12);
         }
 
         private static char Ean13CheckDigit(string twelve)

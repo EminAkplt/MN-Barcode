@@ -468,7 +468,17 @@ namespace MN_Barcode.WinForms
         // 🚫 GLOBAL BARKOD ENGELLEME
         // ============================================================
         private DateTime _lastScanTime = DateTime.Now;
+        private DateTime _scanStartTime = DateTime.Now;
         private string _globalScanBuffer = "";
+
+        /// <summary>Tuşlar arası bu süreden uzun boşluk varsa insan yazıyordur, tampon sıfırlanır.</summary>
+        private const int TuslarArasiMaxMs = 50;
+
+        /// <summary>Bir barkodun tamamı bu süreden kısa sürede gelmelidir (okuyucular ~100 ms).</summary>
+        private const int BarkodMaxSureMs = 500;
+
+        /// <summary>Barkod sayılacak en az karakter sayısı.</summary>
+        private const int BarkodMinUzunluk = 3;
 
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
         {
@@ -481,31 +491,34 @@ namespace MN_Barcode.WinForms
                 return true; // Kısayol işlendi, tuşu yut
             }
 
-            // 2. Barkod Okuyucu Yakalama (Hızlı giriş algılama)
+            // 2. Barkod Okuyucu Yakalama (hızlı giriş algılama)
             DateTime now = DateTime.Now;
-            // Tuşlar arası süre uzunsa (insan yazıyorsa) tamponu sıfırla
-            if ((now - _lastScanTime).TotalMilliseconds > 50)
+            if ((now - _lastScanTime).TotalMilliseconds > TuslarArasiMaxMs)
             {
                 _globalScanBuffer = "";
+                _scanStartTime = now;
             }
             _lastScanTime = now;
 
             if (keyData == Keys.Enter)
             {
-                // Tamponda yeterince karakter varsa bu bir barkod okuyucu işlemidir.
-                if (_globalScanBuffer.Length >= 3)
+                bool yeterliUzunluk = _globalScanBuffer.Length >= BarkodMinUzunluk;
+                bool yeterliHizli = (now - _scanStartTime).TotalMilliseconds <= BarkodMaxSureMs;
+
+                // Barkod sayılması için hem uzunluk hem SÜRE şartı aranır.
+                // Eskiden yalnızca uzunluğa bakılıyordu: hızlı yazan biri arama
+                // kutusuna "peynir" yazıp Enter'a bastığında tampon 6 karakter
+                // olduğu için Enter YUTULUYOR ve arama çalışmıyordu.
+                if (yeterliUzunluk && yeterliHizli && isSalesFormActive)
                 {
                     string code = _globalScanBuffer;
                     _globalScanBuffer = "";
-
-                    if (isSalesFormActive)
-                    {
-                        activeSalesForm.ProcessScannedBarcode(code);
-                    }
-                    // Barkod okuyucu işlemi algılandı: Enter'ı her halükarda yutuyoruz
-                    // ki başka formlardayken istenmeyen butonlara basılmasın.
-                    return true; 
+                    activeSalesForm.ProcessScannedBarcode(code);
+                    return true;   // yalnızca gerçek bir okutmada Enter yutulur
                 }
+
+                // Satış ekranı dışında Enter ASLA yutulmaz — arama kutuları,
+                // iletişim pencereleri ve varsayılan butonlar çalışmaya devam etsin.
                 _globalScanBuffer = "";
             }
             else
@@ -513,6 +526,7 @@ namespace MN_Barcode.WinForms
                 char c = KeyToChar(keyData);
                 if (c != '\0')
                 {
+                    if (_globalScanBuffer.Length == 0) _scanStartTime = now;
                     _globalScanBuffer += c;
                     // Not: Karakterlerin arama vb. kutularına normal akışta yazılmasını
                     // bozmamak için burada 'return true' DEMİYORUZ. Sadece tampona ekliyoruz.
@@ -522,12 +536,31 @@ namespace MN_Barcode.WinForms
             return base.ProcessCmdKey(ref msg, keyData);
         }
 
+        /// <summary>
+        /// Tuş kodunu karaktere çevirir (barkod tamponu için).
+        ///
+        /// İki hata düzeltildi:
+        ///  1. Ctrl/Alt kombinasyonları da tampona yazılıyordu — Ctrl+C basmak
+        ///     tampona 'C' ekleyip sonraki okutmayı bozuyordu.
+        ///  2. Harfler HER ZAMAN büyük harfe çevriliyordu. Küçük harf içeren bir
+        ///     barkod okutulduğunda kod bozuluyor ve ürün bulunamıyordu.
+        ///     Artık Shift durumuna bakılıyor (okuyucular büyük harf için Shift gönderir).
+        /// </summary>
         private static char KeyToChar(Keys keyData)
         {
+            // Kısayol tuşları barkod değildir.
+            if ((keyData & Keys.Control) != 0 || (keyData & Keys.Alt) != 0) return '\0';
+
             Keys key = keyData & Keys.KeyCode;
-            if (key >= Keys.D0 && key <= Keys.D9) return (char)('0' + (key - Keys.D0));
+            bool shift = (keyData & Keys.Shift) != 0;
+
+            // Shift'li rakam tuşları sembol üretir (!, ', ^ ...) — barkod değil.
+            if (key >= Keys.D0 && key <= Keys.D9) return shift ? '\0' : (char)('0' + (key - Keys.D0));
             if (key >= Keys.NumPad0 && key <= Keys.NumPad9) return (char)('0' + (key - Keys.NumPad0));
-            if (key >= Keys.A && key <= Keys.Z) return (char)('A' + (key - Keys.A));
+
+            if (key >= Keys.A && key <= Keys.Z)
+                return shift ? (char)('A' + (key - Keys.A)) : (char)('a' + (key - Keys.A));
+
             if (key == Keys.OemMinus || key == Keys.Subtract) return '-';
             return '\0';
         }

@@ -417,6 +417,10 @@ namespace MN_Barcode.WinForms
                 return;
             }
 
+            // İade, satılmış bir ürün için yapılmalıdır. Doğrulama olmadığında
+            // hiç satılmamış bir ürün defalarca "iade" edilip stok şişirilebiliyordu.
+            if (_isReturnMode && !IadeOnayiAl()) return;
+
             try
             {
                 Sale newSale = new Sale
@@ -440,6 +444,47 @@ namespace MN_Barcode.WinForms
                 string err = ex.InnerException != null ? ex.InnerException.Message : ex.Message;
                 AppLogger.Yaz("Satış kaydedilemedi", ex);
                 SafeMessageBox("İşlem kaydedilemedi:\n" + err, "Hata", true);
+            }
+        }
+
+        /// <summary>
+        /// İade edilmek istenen ürünlerin gerçekten satılmış olup olmadığını kontrol eder.
+        ///
+        /// Satılmamış ürün için iade yapmak stoğu haksız yere artırır ve ciroyu düşürür.
+        /// Hiç satış kaydı olmayan ürünler varsa kasiyere sorulur; yine de devam etmek
+        /// isteyebilir (elden satış, devir stoğu gibi durumlar), ama artık bunu bilerek yapar.
+        /// </summary>
+        private bool IadeOnayiAl()
+        {
+            try
+            {
+                var satilmamis = new System.Collections.Generic.List<string>();
+
+                foreach (var grup in _cartDetails.GroupBy(d => d.ProductId))
+                {
+                    if (_saleService.UrunSatildiMi(grup.Key)) continue;
+
+                    var urun = _productService.GetById(grup.Key);
+                    satilmamis.Add(urun?.Name ?? $"#{grup.Key}");
+                }
+
+                if (satilmamis.Count == 0) return true;
+
+                var cevap = MessageBox.Show(
+                    "Aşağıdaki ürünlerin satış kaydı bulunamadı:\n\n" +
+                    string.Join("\n", satilmamis.Select(a => "  • " + a)) +
+                    "\n\nYine de iade edilsin mi?\n" +
+                    "(İade edilirse bu ürünlerin stoğu artacaktır.)",
+                    "İade doğrulaması",
+                    MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2);
+
+                return cevap == DialogResult.Yes;
+            }
+            catch (Exception ex)
+            {
+                // Doğrulama yapılamıyorsa iadeyi engellemeyelim; sadece kayda geçir.
+                AppLogger.Yaz("İade doğrulaması yapılamadı", ex);
+                return true;
             }
         }
 

@@ -1,5 +1,6 @@
 using System;
 using System.Drawing;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using MN_Barcode.Business;
 using MN_Barcode.Entities;
@@ -523,9 +524,29 @@ namespace MN_Barcode.WinForms
 
                     if (inputForm.ShowDialog(this.FindForm()) == DialogResult.OK && !string.IsNullOrWhiteSpace(txt.Text))
                     {
-                        _categoryService.Add(new Category { Name = txt.Text.Trim() });
-                        LoadCategories();
-                        LoadCategoryDropdown();
+                        string ad = txt.Text.Trim();
+
+                        // Sütun sınırı aşılırsa veya kayıt sırasında bir sorun çıkarsa
+                        // eskiden istisna yakalanmadan yukarı çıkıp uygulamayı çökertiyordu.
+                        if (ad.Length > 50)
+                        {
+                            MessageBox.Show("Kategori adı en fazla 50 karakter olabilir.",
+                                "Uyarı", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                            return;
+                        }
+
+                        try
+                        {
+                            _categoryService.Add(new Category { Name = ad });
+                            LoadCategories();
+                            LoadCategoryDropdown();
+                        }
+                        catch (Exception ex)
+                        {
+                            AppLogger.Yaz("Kategori eklenemedi", ex);
+                            MessageBox.Show("Kategori eklenemedi. Ayrıntı hata kaydına yazıldı.",
+                                "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        }
                     }
                 }
             }
@@ -548,18 +569,26 @@ namespace MN_Barcode.WinForms
             LoadCategories();
         }
 
-        private void LoadProducts()
+        private bool _urunlerYukleniyor;
+
+        private async void LoadProducts()
         {
+            if (_urunlerYukleniyor) return;
+
             // Kategori süzgeci veritabanında uygulanır. Eskiden tüm ürünler çekilip
             // bellekte süzülüyordu — 20 ürünlük bir kategori için tüm katalog taşınıyordu.
             string kategori = _cmbCategory.SelectedIndex > 0
                 ? _cmbCategory.SelectedItem?.ToString() ?? ""
                 : "";
+            string arama = _txtSearch.Text.Trim();
 
+            _urunlerYukleniyor = true;
             List<Product> list;
             try
             {
-                list = _productService.GetProducts(_txtSearch.Text.Trim(), kategori);
+                // Sorgu arka planda: büyük katalogda LIKE taraması arayüzü donduruyordu.
+                list = await Task.Run(() => _productService.GetProducts(arama, kategori));
+                if (this.IsDisposed || _gridProducts.IsDisposed) return;
             }
             catch (Exception ex)
             {
@@ -567,6 +596,10 @@ namespace MN_Barcode.WinForms
                 MessageBox.Show("Ürün listesi yüklenemedi. Ayrıntı hata kaydına yazıldı.",
                     "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
+            }
+            finally
+            {
+                _urunlerYukleniyor = false;
             }
 
             // Satırlar eklenirken her eklemede yeniden yerleşim/çizim yapılmasın.

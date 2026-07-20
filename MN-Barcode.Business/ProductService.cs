@@ -1,6 +1,7 @@
 using MN_Barcode.DataAccess;
 using MN_Barcode.Entities;
 using Microsoft.EntityFrameworkCore;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -32,6 +33,25 @@ namespace MN_Barcode.Business
         {
             using var context = new BarcodeContext();
             return context.Products.Find(id);
+        }
+
+        /// <summary>
+        /// Belirtilen önekle başlayan barkodları tek sorguda getirir.
+        ///
+        /// Barkod üretiminde benzersizlik kontrolü için kullanılır: eskiden her aday
+        /// için ayrı bir veritabanı sorgusu (ve ayrı bağlantı) açılıyordu; soğuk
+        /// LocalDB'de bu, arayüzü onlarca saniye kilitleyebiliyordu.
+        /// </summary>
+        public HashSet<string> GetBarcodesWithPrefix(string prefix)
+        {
+            using var context = new BarcodeContext();
+            var liste = context.Products
+                .AsNoTracking()
+                .Where(p => p.Barcode != null && p.Barcode.StartsWith(prefix))
+                .Select(p => p.Barcode)
+                .ToList();
+
+            return new HashSet<string>(liste, StringComparer.Ordinal);
         }
 
         // 3. BARKOD İLE GETİR (Satış ekranı için)
