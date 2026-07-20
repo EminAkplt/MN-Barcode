@@ -205,7 +205,7 @@ namespace MN_Barcode.WinForms
 
             Label lblDefault = new Label
             {
-                Text = "📌 Varsayılan tüm şifreler: 123",
+                Text = "🔒 Şifreniz varsayılan ise mutlaka değiştirin",
                 Font = new Font("Segoe UI", 11, FontStyle.Bold),
                 ForeColor = PrimaryBlue,
                 Location = new Point(0, 185),
@@ -299,33 +299,76 @@ namespace MN_Barcode.WinForms
                 Location = new Point(x, y),
                 Size = new Size(250, 35),
                 Font = new Font("Segoe UI", 12),
-                BorderStyle = BorderStyle.FixedSingle
+                BorderStyle = BorderStyle.FixedSingle,
+                // Şifreler ekranda okunur halde duruyordu: terminalin başına
+                // geçen herkes admin şifresini görebiliyordu. Artık maskeli.
+                UseSystemPasswordChar = true,
+                PlaceholderText = "Değiştirmek için yeni şifre girin"
             };
             return txt;
         }
 
+        /// <summary>
+        /// Şifre kutularını boşaltır.
+        ///
+        /// Eskiden mevcut şifreler kutulara YAZILIYORDU ve maskesiz gösteriliyordu —
+        /// yani Ayarlar ekranını açan herkes üç şifreyi de okuyabiliyordu.
+        /// Artık kutular boş gelir: boş bırakılan şifre değişmez, yalnızca
+        /// doldurulan alan güncellenir.
+        /// </summary>
         private void LoadCurrentPasswords()
         {
-            _txtUserPassword.Text = _settingsService.GetSetting(SettingsService.KEY_USER_PASSWORD);
-            _txtAdminPassword.Text = _settingsService.GetSetting(SettingsService.KEY_ADMIN_PASSWORD);
-            _txtReportsPassword.Text = _settingsService.GetSetting(SettingsService.KEY_REPORTS_PASSWORD);
+            _txtUserPassword.Text = "";
+            _txtAdminPassword.Text = "";
+            _txtReportsPassword.Text = "";
         }
 
+        /// <summary>
+        /// Yalnızca DOLDURULAN şifreleri günceller. Boş bırakılan alan
+        /// "değiştirme" anlamına gelir — kutular artık mevcut şifreyi göstermediği
+        /// için hepsini birden yazmak zorunda kalmamak gerekiyor.
+        /// </summary>
         private void BtnSavePasswords_Click(object sender, EventArgs e)
         {
-            if (string.IsNullOrWhiteSpace(_txtUserPassword.Text) ||
-                string.IsNullOrWhiteSpace(_txtAdminPassword.Text) ||
-                string.IsNullOrWhiteSpace(_txtReportsPassword.Text))
+            string kullanici = _txtUserPassword.Text.Trim();
+            string yonetici  = _txtAdminPassword.Text.Trim();
+            string raporlar  = _txtReportsPassword.Text.Trim();
+
+            if (kullanici.Length == 0 && yonetici.Length == 0 && raporlar.Length == 0)
             {
-                MessageBox.Show("Şifreler boş olamaz!", "Uyarı", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("Değiştirmek istediğiniz şifreyi yazın.\nBoş bıraktığınız şifreler değişmez.",
+                    "Bilgi", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
 
-            _settingsService.UpdateUserPassword(_txtUserPassword.Text.Trim());
-            _settingsService.UpdateAdminPassword(_txtAdminPassword.Text.Trim());
-            _settingsService.UpdateReportsPassword(_txtReportsPassword.Text.Trim());
+            // Zayıf şifre uyarısı: varsayılan "123" ile satışa çıkmak kabul edilemez.
+            foreach (string s in new[] { kullanici, yonetici, raporlar })
+            {
+                if (s.Length > 0 && s.Length < 3)
+                {
+                    MessageBox.Show("Şifre en az 3 karakter olmalı.", "Uyarı",
+                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+            }
 
-            MessageBox.Show("Şifreler başarıyla güncellendi!", "Başarılı", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            try
+            {
+                var degisenler = new System.Collections.Generic.List<string>();
+                if (kullanici.Length > 0) { _settingsService.UpdateUserPassword(kullanici);   degisenler.Add("Kullanıcı"); }
+                if (yonetici.Length  > 0) { _settingsService.UpdateAdminPassword(yonetici);   degisenler.Add("Yönetici"); }
+                if (raporlar.Length  > 0) { _settingsService.UpdateReportsPassword(raporlar); degisenler.Add("Raporlar"); }
+
+                LoadCurrentPasswords();   // kutuları temizle
+                MessageBox.Show($"Güncellenen şifreler: {string.Join(", ", degisenler)}",
+                    "Başarılı", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Yaz("Şifre güncellenemedi", ex);
+                MessageBox.Show("Şifre güncellenemedi. Ayrıntı hata kaydına yazıldı.",
+                    "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
         private void BtnReset_Click(object sender, EventArgs e)

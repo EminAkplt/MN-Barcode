@@ -4,7 +4,16 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net9.0-windows</TargetFramework>
     <RootNamespace>MN_Barcode.WinForms</RootNamespace>
-    <AssemblyName>MN-Barcode</AssemblyName>
+    <!--
+      Uretilen exe'nin adi. Yayin-Olustur.ps1 -Ad ile degistirilebilir:
+          dotnet publish -p:PaketAdi=MN-barcode01
+      Dogrudan -p:AssemblyName kullanilamaz; global ozellik oldugu icin
+      referans verilen kutuphane projelerine de uygulanir ve
+      "Ambiguous project name" hatasi verir. Bu ozel ozellik yalnizca
+      bu projede okunur.
+    -->
+    <PaketAdi Condition="'$(PaketAdi)' == ''">MN-Barcode</PaketAdi>
+    <AssemblyName>$(PaketAdi)</AssemblyName>
     <Nullable>disable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
