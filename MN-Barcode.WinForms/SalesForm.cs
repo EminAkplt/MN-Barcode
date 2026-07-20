@@ -337,22 +337,26 @@ namespace MN_Barcode.WinForms
             }
             else
             {
-                // Ürün bulunamadı, hızlı ekleme formunu aç
+                // Ürün bulunamadı, hızlı ekleme formunu aç.
+                // using: eskiden form hiç bırakılmıyordu; bilinmeyen her barkod
+                // okutmasında bir Form (ve içindeki tüm kontroller) sızıyordu.
                 var newProduct = new Product { Barcode = code };
-                var addForm = new ProductEditForm(newProduct);
-                if (addForm.ShowDialog() == DialogResult.OK)
+                using (var addForm = new ProductEditForm(newProduct))
                 {
-                    // Eklendikten sonra sepete at
-                    var savedProduct = _productService.GetByBarcode(code);
-                    if (savedProduct != null)
+                    if (addForm.ShowDialog(this.FindForm()) == DialogResult.OK)
                     {
-                        AddToCart(savedProduct);
-                        _txtBarcode.Clear();
+                        // Eklendikten sonra sepete at
+                        var savedProduct = _productService.GetByBarcode(code);
+                        if (savedProduct != null)
+                        {
+                            AddToCart(savedProduct);
+                            _txtBarcode.Clear();
+                        }
                     }
-                }
-                else
-                {
-                    _txtBarcode.SelectAll();
+                    else
+                    {
+                        _txtBarcode.SelectAll();
+                    }
                 }
             }
             _txtBarcode.Focus(); // İşlem sonrası odağı tekrar barkod kutusuna al
@@ -385,6 +389,14 @@ namespace MN_Barcode.WinForms
 
         private void AddToCart(Product p)
         {
+            // Hızlı tuş veya barkod yolu ürün bulamamış olabilir; null gelirse
+            // aşağıdaki p.Name erişimi uygulamayı çökertirdi.
+            if (p == null)
+            {
+                SafeMessageBox("Ürün bilgisi alınamadı. Tekrar deneyin.", "Uyarı", true);
+                return;
+            }
+
             int qty = _isReturnMode ? -1 : 1;
             decimal price = _isReturnMode ? p.SellingPrice * -1 : p.SellingPrice;
             _gridSepet.Rows.Add(p.Name, qty, p.SellingPrice.ToString("C2"), price.ToString("C2"));
@@ -397,25 +409,54 @@ namespace MN_Barcode.WinForms
 
         private void CompleteSale(PaymentType paymentType)
         {
-            if (_grandTotal == 0 && !_isReturnMode) return;
+            // Sepet boşken fiş kesilmemeli. Eskiden iade modunda bu kontrol
+            // atlanıyordu ve boş bir iade fişi (0 TL, satırsız) kaydedilebiliyordu.
+            if (_cartDetails.Count == 0)
+            {
+                SafeMessageBox("Sepet boş. Önce ürün ekleyin.", "Uyarı", true);
+                return;
+            }
+
             try
             {
                 Sale newSale = new Sale
                 {
-                    TransactionCode = DateTime.Now.ToString("yyyyMMddHHmmss"),
+                    TransactionCode = FisNumarasiUret(),
                     PaymentType     = _isReturnMode ? PaymentType.Iade : paymentType,
                     SaleType        = _isReturnMode ? SaleType.Iade : SaleType.Satis,
                     TotalAmount     = _grandTotal
                 };
                 _saleService.CompleteSale(newSale, _cartDetails);
-                SafeMessageBox($"İşlem Tamamlandı.\nTutar: {_grandTotal:C2}", "Bilgi");
+                SafeMessageBox($"İşlem Tamamlandı.\nFiş No: {newSale.TransactionCode}\nTutar: {_grandTotal:C2}", "Bilgi");
                 ClearCart();
+            }
+            catch (InsufficientStockException ex)
+            {
+                // Stok yetersiz — kullanıcıya ne yapacağını söyleyen özel mesaj.
+                SafeMessageBox(ex.Message, "Yetersiz stok", true);
             }
             catch (Exception ex)
             {
                 string err = ex.InnerException != null ? ex.InnerException.Message : ex.Message;
-                SafeMessageBox("Hata: " + err, "Hata", true);
+                AppLogger.Yaz("Satış kaydedilemedi", ex);
+                SafeMessageBox("İşlem kaydedilemedi:\n" + err, "Hata", true);
             }
+        }
+
+        /// <summary>
+        /// Benzersiz fiş numarası üretir.
+        ///
+        /// Eskiden yalnızca "yyyyMMddHHmmss" kullanılıyordu — saniye çözünürlüğü.
+        /// Aynı saniyede iki satış aynı numarayı alıyor, Satış Geçmişi ve İade
+        /// ekranları fişleri TransactionCode'a göre grupladığı için iki ayrı satış
+        /// tek fiş gibi görünüyordu. İade takibi de belirsizleşiyordu.
+        /// Sona milisaniye + sayaç eklendi.
+        /// </summary>
+        private static int _fisSayaci;
+        private static string FisNumarasiUret()
+        {
+            int sira = System.Threading.Interlocked.Increment(ref _fisSayaci) % 1000;
+            return DateTime.Now.ToString("yyyyMMddHHmmssfff") + sira.ToString("000");
         }
 
         private void ClearCart()

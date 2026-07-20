@@ -55,7 +55,11 @@ namespace MN_Barcode.Business
             var totalRev = sales.Sum(x => x.TotalAmount);
 
             // Hiç hareket yoksa boş özet dön.
-            if (!sales.Any() && expenses == 0) return new DailySummary { Date = date };
+            // DİKKAT: iadeler de bir harekettir. Eskiden bu kontrol returnTotal'ı
+            // hesaba katmadığı için, yalnızca iade yapılan bir gün her yerde sıfır
+            // görünüyordu ve iadeler Z raporundan tamamen kayboluyordu.
+            if (!sales.Any() && expenses == 0 && returnTotal == 0)
+                return new DailySummary { Date = date };
 
             // O güne ait satış fişlerinin id'leri üzerinden satılan toplam adedi hesapla.
             var detailIds = sales.Select(s => s.Id).ToList();

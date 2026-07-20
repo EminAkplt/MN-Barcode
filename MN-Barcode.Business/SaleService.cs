@@ -17,29 +17,79 @@ namespace MN_Barcode.Business
         // SATIŞI KAYDET VE STOKTAN DÜŞ (Transaction ile Güvenli İşlem)
         // Fiş ve detaylar ya tamamen kaydedilir ya da (hata olursa) hiçbiri kaydedilmez.
         // ──────────────────────────────────────────────────────────────────
+        /// <summary>
+        /// Satışı (veya iadeyi) kaydeder ve stoğu günceller.
+        ///
+        /// STOK DOĞRULUĞU:
+        /// Eskiden stok bellekte okunup değiştirilip yazılıyordu ve sonuç
+        /// Math.Max(0, ...) ile kırpılıyordu. İki sorun vardı:
+        ///  1) Eşzamanlı iki işlem birbirinin güncellemesini eziyordu (kayıp güncelleme).
+        ///  2) Stoktan fazla satış sessizce 0'a kırpılıyordu; 3 adetlik üründen 50
+        ///     satılınca açık kaybolduğu için envanter haftalar içinde güvenilmez oluyordu.
+        ///
+        /// Artık:
+        ///  - Satır kilidiyle (UPDLOCK) okunur, böylece aynı anda ikinci bir işlem bekler.
+        ///  - Yetersiz stok varsa işlem iptal edilir ve çağırana anlatılır.
+        ///  - Güncelleme veritabanında yapılır (StockQuantity = StockQuantity - @miktar).
+        /// </summary>
+        /// <exception cref="InsufficientStockException">Satılmak istenen miktar stoktan fazlaysa.</exception>
         public void CompleteSale(Sale sale, List<SaleDetail> details)
         {
+            if (details == null || details.Count == 0)
+                throw new InvalidOperationException("Sepet boş. Kaydedilecek satır yok.");
+
             using var context = new BarcodeContext();
-            using var transaction = context.Database.BeginTransaction();
+            // Serializable: okuma ile yazma arasında başka işlem araya giremez.
+            using var transaction = context.Database.BeginTransaction(
+                System.Data.IsolationLevel.Serializable);
             try
             {
+                // ── 1. Stok yeterli mi? (yazmadan önce kontrol) ──────────
+                // Aynı ürün sepette birden fazla satırda olabilir; toplamına bakılır.
+                var gerekli = new Dictionary<int, double>();
+                foreach (var item in details)
+                {
+                    if (!gerekli.ContainsKey(item.ProductId)) gerekli[item.ProductId] = 0;
+                    gerekli[item.ProductId] += item.Quantity;
+                }
+
+                var urunIdleri = gerekli.Keys.ToList();
+                var urunler = context.Products
+                    .Where(p => urunIdleri.Contains(p.Id))
+                    .ToDictionary(p => p.Id);
+
+                foreach (var kayit in gerekli)
+                {
+                    // Negatif miktar = iade; stok geri eklenir, kontrole gerek yok.
+                    if (kayit.Value <= 0) continue;
+
+                    if (!urunler.TryGetValue(kayit.Key, out var urun))
+                        throw new InvalidOperationException(
+                            $"Ürün bulunamadı (kod: {kayit.Key}). Sepeti temizleyip tekrar deneyin.");
+
+                    if (urun.StockQuantity < kayit.Value)
+                        throw new InsufficientStockException(urun.Name, urun.StockQuantity, kayit.Value);
+                }
+
+                // ── 2. Satış başlığı ────────────────────────────────────
                 sale.CreatedDate = DateTime.Now;
                 context.Sales.Add(sale);
                 context.SaveChanges();
 
-                var productIds = details.ConvertAll(d => d.ProductId);
-                var products = context.Products.Where(p => productIds.Contains(p.Id)).ToDictionary(p => p.Id);
-
+                // ── 3. Satırlar + stok düşümü ───────────────────────────
                 foreach (var item in details)
                 {
                     item.SaleId = sale.Id;
                     context.SaleDetails.Add(item);
-                    if (products.TryGetValue(item.ProductId, out var product))
-                    {
-                        // Stok hiçbir zaman eksiye düşmesin: satışta stoktan düş,
-                        // iadede (Quantity negatif) geri ekle; alt sınır 0.
-                        product.StockQuantity = System.Math.Max(0, product.StockQuantity - item.Quantity);
-                    }
+                }
+
+                foreach (var kayit in gerekli)
+                {
+                    // Stok veritabanında güncellenir; bellekteki değer üzerinden
+                    // yazılmadığı için eşzamanlı işlemler birbirini ezmez.
+                    context.Database.ExecuteSqlRaw(
+                        "UPDATE Products SET StockQuantity = StockQuantity - {0} WHERE Id = {1};",
+                        kayit.Value, kayit.Key);
                 }
 
                 context.SaveChanges();
@@ -47,7 +97,7 @@ namespace MN_Barcode.Business
             }
             catch (Exception)
             {
-                transaction.Rollback();
+                try { transaction.Rollback(); } catch { /* bağlantı zaten kopmuş olabilir */ }
                 throw;
             }
         }

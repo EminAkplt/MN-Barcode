@@ -334,24 +334,38 @@ namespace MN_Barcode.WinForms
                 return;
             }
 
-            if (!decimal.TryParse(
-                    _txtSellPrice.Text.Replace(",", "."),
-                    System.Globalization.NumberStyles.Any,
-                    System.Globalization.CultureInfo.InvariantCulture,
-                    out decimal sellPrice) || sellPrice < 0)
+            // Tutarlar ortak TutarParser ile çözümlenir: kültüre bağlı parse
+            // "12.50" değerini tr-TR'de 1250 yapıyordu. Ayrıca ".Replace(\",\", \".\")"
+            // yaklaşımı "1.234,56" gibi binlik ayraçlı girdide bozuluyordu.
+            if (!TutarParser.TryParse(_txtSellPrice.Text, out decimal sellPrice) || sellPrice < 0)
             {
-                MessageBox.Show("Geçerli bir satış fiyatı giriniz!", "Uyarı", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("Geçerli bir satış fiyatı giriniz!\nÖrnek: 12,50", "Uyarı", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 _txtSellPrice.Focus();
                 return;
             }
 
-            decimal.TryParse(_txtBuyPrice.Text.Replace(",", "."),
-                System.Globalization.NumberStyles.Any,
-                System.Globalization.CultureInfo.InvariantCulture, out decimal buyPrice);
+            // Alış fiyatı ve stok eskiden TryParse sonucu YOK SAYILARAK okunuyordu:
+            // hatalı girdi sessizce 0 olarak kaydediliyor, kullanıcı fark etmiyordu.
+            // Boş bırakmak serbest (0 sayılır), ama dolu ve hatalıysa uyarılır.
+            decimal buyPrice = 0m;
+            if (!string.IsNullOrWhiteSpace(_txtBuyPrice.Text) &&
+                !TutarParser.TryParse(_txtBuyPrice.Text, out buyPrice))
+            {
+                MessageBox.Show("Alış fiyatı anlaşılamadı.\nÖrnek: 8,75\nBoş bırakırsanız 0 kaydedilir.",
+                    "Uyarı", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                _txtBuyPrice.Focus();
+                return;
+            }
 
-            double.TryParse(_txtStock.Text.Replace(",", "."),
-                System.Globalization.NumberStyles.Any,
-                System.Globalization.CultureInfo.InvariantCulture, out double stock);
+            double stock = 0d;
+            if (!string.IsNullOrWhiteSpace(_txtStock.Text) &&
+                !TutarParser.TryParseMiktar(_txtStock.Text, out stock))
+            {
+                MessageBox.Show("Stok miktarı anlaşılamadı.\nÖrnek: 25 veya 2,5\nBoş bırakırsanız 0 kaydedilir.",
+                    "Uyarı", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                _txtStock.Focus();
+                return;
+            }
 
             _product.Name          = _txtName.Text.Trim();
             _product.Barcode       = string.IsNullOrWhiteSpace(_txtBarcode.Text) ? null : _txtBarcode.Text.Trim();

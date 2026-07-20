@@ -252,7 +252,16 @@ namespace MN_Barcode.WinForms
         private void LoadData()
         {
             DateTime start = _dtStart.Value.Date;
-            DateTime end = _dtEnd.Value.Date.AddDays(1).AddSeconds(-1);
+            // Son günün tamamı dahil olmalı. AddSeconds(-1) kullanıldığında
+            // 23:59:59'dan sonraki milisaniyelerde yapılan satışlar rapora girmiyordu.
+            DateTime end = _dtEnd.Value.Date.AddDays(1).AddTicks(-1);
+
+            if (start > end)
+            {
+                MessageBox.Show("Başlangıç tarihi bitiş tarihinden sonra olamaz.",
+                    "Uyarı", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
 
             _grid.Rows.Clear();
             var details = _saleService.GetSalesHistoryWithDetails(start, end);

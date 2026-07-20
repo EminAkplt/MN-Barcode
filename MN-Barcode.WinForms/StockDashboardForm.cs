@@ -228,6 +228,22 @@ namespace MN_Barcode.WinForms
 
         private void LoadData()
         {
+            // Veritabanı erişimi hata verirse (bağlantı koptu, disk doldu vb.)
+            // eskiden istisna yakalanmadan yukarı çıkıp uygulamayı çökertiyordu.
+            try
+            {
+                VerileriYukle();
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Yaz("Stok ekranı yüklenemedi", ex);
+                MessageBox.Show("Stok bilgileri yüklenemedi.\nAyrıntı hata kaydına yazıldı.",
+                    "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void VerileriYukle()
+        {
             // Bugünkü satışlar
             decimal todayTotal = _saleService.GetTodaySalesTotal();
             int todayCount = _saleService.GetTodaySalesCount();

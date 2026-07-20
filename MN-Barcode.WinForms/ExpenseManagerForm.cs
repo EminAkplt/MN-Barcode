@@ -331,7 +331,8 @@ namespace MN_Barcode.WinForms
             try
             {
                 DateTime start = _dtStart.Value.Date;
-                DateTime end = _dtEnd.Value.Date.AddDays(1).AddSeconds(-1);
+                // Son günün tamamı dahil (bkz. SalesHistoryForm'daki aynı düzeltme).
+            DateTime end = _dtEnd.Value.Date.AddDays(1).AddTicks(-1);
                 string person = _txtSearchPerson.Text?.Trim() ?? "";
 
                 var expenses = _expenseService.GetExpenses(start, end);
