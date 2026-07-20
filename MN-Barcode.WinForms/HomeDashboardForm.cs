@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using MN_Barcode.Business;
 using MN_Barcode.Entities;
@@ -416,33 +417,73 @@ namespace MN_Barcode.WinForms
         // ============================================================
         //  VERİ YÜKLEME
         // ============================================================
-        private void LoadData()
+        private bool _yukleniyor;
+
+        private async void LoadData()
         {
+            if (_yukleniyor) return;
+            _yukleniyor = true;
+
+            _lblTodayCiro.Text = "…";
+            _lblMonthlyCiro.Text = "…";
+            _lblTodayCount.Text = "…";
+
             try
             {
-                _lblTodayCiro.Text = _saleService.GetTodaySalesTotal().ToString("₺#,##0");
-                _lblMonthlyCiro.Text = _saleService.GetMonthlySalesTotal().ToString("₺#,##0");
-                _lblTodayCount.Text = _saleService.GetTodaySalesCount().ToString();
+                DateTime bas = _dtpStart.Value, bit = _dtpEnd.Value;
 
-                LoadChartAndStock();
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine("Dashboard yüklenirken hata: " + ex.Message);
-            }
-        }
+                // Dört sorgu da arka planda çalışır. Eskiden hepsi arayüz
+                // iş parçacığındaydı; soğuk LocalDB'de Ana Sayfa saniyelerce
+                // donuyordu ve kullanıcı programın kilitlendiğini sanıyordu.
+                var veri = await Task.Run(() => new
+                {
+                    Bugun   = _saleService.GetTodaySalesTotal(),
+                    Aylik   = _saleService.GetMonthlySalesTotal(),
+                    Adet    = _saleService.GetTodaySalesCount(),
+                    Grafik  = _saleService.GetDailySales(bas, bit)
+                });
 
-        // Tarih aralığına bağlı grafik — tarih değişince yeniden yüklenir.
-        private void LoadChartAndStock()
-        {
-            try
-            {
-                _chartData = _saleService.GetDailySales(_dtpStart.Value, _dtpEnd.Value);
+                if (this.IsDisposed) return;
+
+                _lblTodayCiro.Text   = veri.Bugun.ToString("₺#,##0");
+                _lblMonthlyCiro.Text = veri.Aylik.ToString("₺#,##0");
+                _lblTodayCount.Text  = veri.Adet.ToString();
+                _chartData = veri.Grafik;
                 _chartPanel?.Invalidate();
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine("Grafik yüklenirken hata: " + ex.Message);
+                // Eskiden hata yalnızca Debug.WriteLine'a gidiyordu; Release
+                // yapısında hiçbir yere yazılmıyor, ekran sessizce boş kalıyordu.
+                AppLogger.Yaz("Ana sayfa yüklenemedi", ex);
+                if (!this.IsDisposed)
+                {
+                    _lblTodayCiro.Text = "—";
+                    _lblMonthlyCiro.Text = "—";
+                    _lblTodayCount.Text = "—";
+                }
+            }
+            finally
+            {
+                _yukleniyor = false;
+            }
+        }
+
+        // Tarih aralığına bağlı grafik — tarih değişince yeniden yüklenir.
+        private async void LoadChartAndStock()
+        {
+            try
+            {
+                DateTime bas = _dtpStart.Value, bit = _dtpEnd.Value;
+                var veri = await Task.Run(() => _saleService.GetDailySales(bas, bit));
+
+                if (this.IsDisposed) return;
+                _chartData = veri;
+                _chartPanel?.Invalidate();
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Yaz("Grafik yüklenemedi", ex);
             }
         }
     }

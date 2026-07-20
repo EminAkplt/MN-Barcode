@@ -207,6 +207,67 @@ namespace MN_Barcode.Business
                 .ToList();
         }
 
+        /// <summary>
+        /// Geçmiş ekranlarında bir seferde gösterilecek en fazla satır sayısı.
+        ///
+        /// Sınır olmadan yoğun bir dükkânın 7 günlük varsayılan aralığı on binlerce
+        /// satır getirebiliyordu; her satır için ayrı bir DataGridViewCellStyle
+        /// üretildiği için ekran 10+ saniye donuyor ve bellek şişiyordu.
+        /// </summary>
+        public const int VarsayilanSatirSiniri = 2000;
+
+        /// <summary>
+        /// Satış geçmişini sayfalı getirir. Toplam tutar ve satır sayısı
+        /// aralığın TAMAMI üzerinden veritabanında hesaplanır — gösterilen
+        /// satırlardan değil. Aksi halde kırpılmış listede eksik ciro görünürdü.
+        /// </summary>
+        public GecmisSonucu GetSalesHistoryPage(DateTime startDate, DateTime endDate,
+                                                int limit = VarsayilanSatirSiniri)
+        {
+            return GecmisGetir(startDate, endDate, SaleType.Satis, limit);
+        }
+
+        /// <summary>İade geçmişini sayfalı getirir (bkz. GetSalesHistoryPage).</summary>
+        public GecmisSonucu GetReturnsHistoryPage(DateTime startDate, DateTime endDate,
+                                                  int limit = VarsayilanSatirSiniri)
+        {
+            return GecmisGetir(startDate, endDate, SaleType.Iade, limit);
+        }
+
+        private GecmisSonucu GecmisGetir(DateTime startDate, DateTime endDate,
+                                         SaleType tur, int limit)
+        {
+            if (limit <= 0) limit = VarsayilanSatirSiniri;
+
+            using var context = new BarcodeContext();
+
+            var sorgu = context.SaleDetails
+                .Where(x => x.Sale.CreatedDate >= startDate
+                         && x.Sale.CreatedDate <= endDate
+                         && x.Sale.SaleType == tur
+                         && (tur == SaleType.Satis ? x.Quantity > 0 : x.Quantity < 0));
+
+            // Sayım ve toplam veritabanında yapılır; satırlar belleğe alınmaz.
+            int adet = sorgu.Count();
+            decimal toplam = sorgu.Sum(x => (decimal?)x.TotalPrice) ?? 0m;
+
+            var satirlar = sorgu
+                .Include(x => x.Sale)
+                .Include(x => x.Product)
+                .OrderByDescending(x => x.Sale.CreatedDate)
+                .ThenBy(x => x.Sale.TransactionCode)
+                .Take(limit)
+                .AsNoTracking()          // salt okunur liste — takip maliyeti gereksiz
+                .ToList();
+
+            return new GecmisSonucu
+            {
+                Satirlar = satirlar,
+                ToplamSatirSayisi = adet,
+                ToplamTutar = toplam
+            };
+        }
+
         // ──────────────────────────────────────────────────────────────────
         // İADE GEÇMİŞİ (Sadece iadeler)
         // ──────────────────────────────────────────────────────────────────

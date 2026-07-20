@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using MN_Barcode.Business;
 using MN_Barcode.Entities;
@@ -244,8 +245,13 @@ namespace MN_Barcode.WinForms
             return grid;
         }
 
-        private void LoadData()
+        /// <summary>Aynı anda ikinci bir yükleme başlamasın diye.</summary>
+        private bool _yukleniyor;
+
+        private async void LoadData()
         {
+            if (_yukleniyor) return;
+
             DateTime start = _dtStart.Value.Date;
             // Son günün tamamı dahil (bkz. SalesHistoryForm'daki aynı düzeltme).
             DateTime end = _dtEnd.Value.Date.AddDays(1).AddTicks(-1);
@@ -257,30 +263,75 @@ namespace MN_Barcode.WinForms
                 return;
             }
 
-            _grid.Rows.Clear();
-            var details = _saleService.GetReturnsHistoryWithDetails(start, end);
+            _yukleniyor = true;
+            Cursor eskiImlec = this.Cursor;
+            this.Cursor = Cursors.WaitCursor;
+            _lblTotal.Text = "Yükleniyor…";
 
-            int colorIndex = 0;
-            foreach (var group in details.GroupBy(x => x.Sale.TransactionCode))
+            try
             {
-                Color rowColor = RowColors[colorIndex % RowColors.Length];
-                colorIndex++;
+                // Veritabanı erişimi arka planda — arayüz donmasın.
+                var sonuc = await Task.Run(() => _saleService.GetReturnsHistoryPage(start, end));
 
-                foreach (var d in group)
+                if (this.IsDisposed || _grid.IsDisposed) return;
+
+                IzgarayiDoldur(sonuc);
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Yaz("İade geçmişi yüklenemedi", ex);
+                _lblTotal.Text = "İade Toplamı: —";
+                MessageBox.Show("İade geçmişi yüklenemedi.\nAyrıntı hata kaydına yazıldı.",
+                    "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                _yukleniyor = false;
+                if (!this.IsDisposed) this.Cursor = eskiImlec;
+            }
+        }
+
+        private void IzgarayiDoldur(GecmisSonucu sonuc)
+        {
+            _grid.SuspendLayout();
+            try
+            {
+                _grid.Rows.Clear();
+
+                int colorIndex = 0;
+                foreach (var group in sonuc.Satirlar.GroupBy(x => x.Sale.TransactionCode))
                 {
-                    int idx = _grid.Rows.Add(
-                        d.Product?.Name ?? "",
-                        d.Product?.Barcode ?? "",
-                        d.Sale.TransactionCode,
-                        d.Sale.CreatedDate?.ToString("dd.MM.yyyy HH:mm"),
-                        Math.Abs(d.TotalPrice)
-                    );
-                    _grid.Rows[idx].DefaultCellStyle.BackColor = rowColor;
+                    Color rowColor = RowColors[colorIndex % RowColors.Length];
+                    colorIndex++;
+
+                    foreach (var d in group)
+                    {
+                        int idx = _grid.Rows.Add(
+                            d.Product?.Name ?? "",
+                            d.Product?.Barcode ?? "",
+                            d.Sale.TransactionCode,
+                            d.Sale.CreatedDate?.ToString("dd.MM.yyyy HH:mm"),
+                            Math.Abs(d.TotalPrice)
+                        );
+                        _grid.Rows[idx].DefaultCellStyle.BackColor = rowColor;
+                    }
                 }
             }
+            finally
+            {
+                _grid.ResumeLayout();
+            }
 
-            decimal total = details.Sum(x => Math.Abs(x.TotalPrice));
-            _lblTotal.Text = $"İade Toplamı: {total:C2}";
+            // İade tutarları negatif saklanır; kullanıcıya pozitif gösterilir.
+            // Toplam, gösterilen satırlardan değil aralığın tamamından gelir.
+            _lblTotal.Text = $"İade Toplamı: {Math.Abs(sonuc.ToplamTutar):C2}";
+
+            if (sonuc.Kirpildi)
+            {
+                _lblTotal.Text +=
+                    $"   (ilk {sonuc.Satirlar.Count:N0} satır gösteriliyor, " +
+                    $"toplam {sonuc.ToplamSatirSayisi:N0} — tarih aralığını daraltın)";
+            }
 
             if (_txtSearch.Text != SearchHint && _txtSearch.Text.Length > 0)
                 FilterData();

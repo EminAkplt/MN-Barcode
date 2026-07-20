@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using MN_Barcode.Business;
 using MN_Barcode.Entities;
@@ -249,8 +250,13 @@ namespace MN_Barcode.WinForms
             return grid;
         }
 
-        private void LoadData()
+        /// <summary>Aynı anda ikinci bir yükleme başlamasın diye.</summary>
+        private bool _yukleniyor;
+
+        private async void LoadData()
         {
+            if (_yukleniyor) return;
+
             DateTime start = _dtStart.Value.Date;
             // Son günün tamamı dahil olmalı. AddSeconds(-1) kullanıldığında
             // 23:59:59'dan sonraki milisaniyelerde yapılan satışlar rapora girmiyordu.
@@ -263,30 +269,77 @@ namespace MN_Barcode.WinForms
                 return;
             }
 
-            _grid.Rows.Clear();
-            var details = _saleService.GetSalesHistoryWithDetails(start, end);
+            _yukleniyor = true;
+            Cursor eskiImlec = this.Cursor;
+            this.Cursor = Cursors.WaitCursor;
+            _lblTotal.Text = "Yükleniyor…";
 
-            int colorIndex = 0;
-            foreach (var group in details.GroupBy(x => x.Sale.TransactionCode))
+            try
             {
-                Color rowColor = RowColors[colorIndex % RowColors.Length];
-                colorIndex++;
+                // Veritabanı erişimi arka planda: soğuk LocalDB'de bu sorgu
+                // saniyeler sürebiliyor ve arayüz "Yanıt vermiyor" duruma düşüyordu.
+                var sonuc = await Task.Run(() => _saleService.GetSalesHistoryPage(start, end));
 
-                foreach (var d in group)
+                if (this.IsDisposed || _grid.IsDisposed) return;   // ekran kapanmış olabilir
+
+                DolduranIzgara(sonuc);
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Yaz("Satış geçmişi yüklenemedi", ex);
+                _lblTotal.Text = "Toplam: —";
+                MessageBox.Show("Satış geçmişi yüklenemedi.\nAyrıntı hata kaydına yazıldı.",
+                    "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                _yukleniyor = false;
+                if (!this.IsDisposed) this.Cursor = eskiImlec;
+            }
+        }
+
+        private void DolduranIzgara(GecmisSonucu sonuc)
+        {
+            // Satırlar tek tek eklenirken her eklemede yeniden yerleşim yapılmasın.
+            _grid.SuspendLayout();
+            try
+            {
+                _grid.Rows.Clear();
+
+                int colorIndex = 0;
+                foreach (var group in sonuc.Satirlar.GroupBy(x => x.Sale.TransactionCode))
                 {
-                    int idx = _grid.Rows.Add(
-                        d.Product?.Name ?? "",
-                        d.Product?.Barcode ?? "",
-                        d.Sale.TransactionCode,
-                        d.Sale.CreatedDate?.ToString("dd.MM.yyyy HH:mm"),
-                        d.TotalPrice
-                    );
-                    _grid.Rows[idx].DefaultCellStyle.BackColor = rowColor;
+                    Color rowColor = RowColors[colorIndex % RowColors.Length];
+                    colorIndex++;
+
+                    foreach (var d in group)
+                    {
+                        int idx = _grid.Rows.Add(
+                            d.Product?.Name ?? "",
+                            d.Product?.Barcode ?? "",
+                            d.Sale.TransactionCode,
+                            d.Sale.CreatedDate?.ToString("dd.MM.yyyy HH:mm"),
+                            d.TotalPrice
+                        );
+                        _grid.Rows[idx].DefaultCellStyle.BackColor = rowColor;
+                    }
                 }
             }
+            finally
+            {
+                _grid.ResumeLayout();
+            }
 
-            decimal total = details.Sum(x => x.TotalPrice);
-            _lblTotal.Text = $"Toplam: {total:C2}";
+            // Toplam, gösterilen satırlardan DEĞİL, aralığın tamamından gelir.
+            // Aksi halde liste kırpıldığında kullanıcı eksik ciro görürdü.
+            _lblTotal.Text = $"Toplam: {sonuc.ToplamTutar:C2}";
+
+            if (sonuc.Kirpildi)
+            {
+                _lblTotal.Text +=
+                    $"   (ilk {sonuc.Satirlar.Count:N0} satır gösteriliyor, " +
+                    $"toplam {sonuc.ToplamSatirSayisi:N0} — tarih aralığını daraltın)";
+            }
 
             if (_txtSearch.Text != SearchHint && _txtSearch.Text.Length > 0)
                 FilterData();

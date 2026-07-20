@@ -1,5 +1,6 @@
 using System;
 using System.Drawing;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using MN_Barcode.Business;
 using System.Linq;
@@ -226,49 +227,72 @@ namespace MN_Barcode.WinForms
             return grid;
         }
 
-        private void LoadData()
+        private bool _yukleniyor;
+
+        private async void LoadData()
         {
-            // Veritabanı erişimi hata verirse (bağlantı koptu, disk doldu vb.)
-            // eskiden istisna yakalanmadan yukarı çıkıp uygulamayı çökertiyordu.
+            if (_yukleniyor) return;
+            _yukleniyor = true;
+            _lblTodaySales.Text = "Yükleniyor…";
+
             try
             {
-                VerileriYukle();
+                // Dört sorgu da arka planda. Eskiden hepsi arayüz iş parçacığında
+                // çalışıyor ve soğuk LocalDB'de ekran saniyelerce donuyordu.
+                // Ayrıca hata yakalanmadığı için Yenile düğmesi programı çökertebiliyordu.
+                var veri = await Task.Run(() => new
+                {
+                    Toplam    = _saleService.GetTodaySalesTotal(),
+                    Adet      = _saleService.GetTodaySalesCount(),
+                    EnCok     = _saleService.GetTopSellingProducts(10),
+                    AzalanStok = _productService.GetLowStockProducts(10, 20)
+                });
+
+                if (this.IsDisposed) return;
+
+                _lblTodaySales.Text = $"Bugün: {veri.Toplam:₺#,##0.00}  ({veri.Adet} satış)";
+
+                _gridTopSelling.SuspendLayout();
+                try
+                {
+                    _gridTopSelling.Rows.Clear();
+                    int rank = 1;
+                    foreach (var item in veri.EnCok)
+                    {
+                        _gridTopSelling.Rows.Add(rank++, item.ProductName,
+                            item.TotalQuantity.ToString("N0"), item.TotalRevenue.ToString("₺#,##0.00"));
+                    }
+                }
+                finally { _gridTopSelling.ResumeLayout(); }
+
+                _gridLowStock.SuspendLayout();
+                try
+                {
+                    _gridLowStock.Rows.Clear();
+                    foreach (var item in veri.AzalanStok)
+                    {
+                        int idx = _gridLowStock.Rows.Add(item.Name, item.Category?.Name ?? "-",
+                            item.StockQuantity.ToString("N0"));
+
+                        _gridLowStock.Rows[idx].Cells[2].Style.ForeColor =
+                            item.StockQuantity <= 5 ? ColRed : ColAmber;
+                    }
+                }
+                finally { _gridLowStock.ResumeLayout(); }
             }
             catch (Exception ex)
             {
                 AppLogger.Yaz("Stok ekranı yüklenemedi", ex);
-                MessageBox.Show("Stok bilgileri yüklenemedi.\nAyrıntı hata kaydına yazıldı.",
-                    "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                if (!this.IsDisposed)
+                {
+                    _lblTodaySales.Text = "Bugün: —";
+                    MessageBox.Show("Stok bilgileri yüklenemedi.\nAyrıntı hata kaydına yazıldı.",
+                        "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
             }
-        }
-
-        private void VerileriYukle()
-        {
-            // Bugünkü satışlar
-            decimal todayTotal = _saleService.GetTodaySalesTotal();
-            int todayCount = _saleService.GetTodaySalesCount();
-            _lblTodaySales.Text = $"Bugün: {todayTotal:₺#,##0.00}  ({todayCount} satış)";
-
-            // En çok satılanlar
-            _gridTopSelling.Rows.Clear();
-            var topSelling = _saleService.GetTopSellingProducts(10);
-            int rank = 1;
-            foreach (var item in topSelling)
+            finally
             {
-                _gridTopSelling.Rows.Add(rank++, item.ProductName, item.TotalQuantity.ToString("N0"), item.TotalRevenue.ToString("₺#,##0.00"));
-            }
-
-            // Stoğu azalanlar
-            _gridLowStock.Rows.Clear();
-            var lowStock = _productService.GetLowStockProducts(10, 20);
-            foreach (var item in lowStock)
-            {
-                int idx = _gridLowStock.Rows.Add(item.Name, item.Category?.Name ?? "-", item.StockQuantity.ToString("N0"));
-
-                if (item.StockQuantity <= 5)
-                    _gridLowStock.Rows[idx].Cells[2].Style.ForeColor = ColRed;
-                else
-                    _gridLowStock.Rows[idx].Cells[2].Style.ForeColor = ColAmber;
+                _yukleniyor = false;
             }
         }
     }
