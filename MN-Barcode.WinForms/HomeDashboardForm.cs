@@ -417,12 +417,20 @@ namespace MN_Barcode.WinForms
         // ============================================================
         //  VERİ YÜKLEME
         // ============================================================
-        private bool _yukleniyor;
+        /// <summary>
+        /// En son başlatılan yükleme isteğinin numarası.
+        ///
+        /// Tarih kısayol düğmeleri ("Bu Ay", "Bu Hafta") iki ayrı DateTimePicker'ı
+        /// arka arkaya değiştiriyor ve her biri ValueChanged tetikliyor. İki sorgu
+        /// aynı anda çalışınca hangisi SON biterse grafiği o yazıyordu — ilk istek
+        /// geç bitince grafik YANLIŞ tarih aralığını gösteriyor, kullanıcı bunu
+        /// anlayamıyordu. LoadData ve LoadChartAndStock aynı sayacı paylaşır.
+        /// </summary>
+        private int _istekNo;
 
         private async void LoadData()
         {
-            if (_yukleniyor) return;
-            _yukleniyor = true;
+            int benimIstek = ++_istekNo;
 
             _lblTodayCiro.Text = "…";
             _lblMonthlyCiro.Text = "…";
@@ -443,6 +451,8 @@ namespace MN_Barcode.WinForms
                     Grafik  = _saleService.GetDailySales(bas, bit)
                 });
 
+                // Daha yeni bir istek başladıysa bu sonuç ekrana yazılmaz.
+                if (benimIstek != _istekNo) return;
                 if (this.IsDisposed) return;
 
                 _lblTodayCiro.Text   = veri.Bugun.ToString("₺#,##0");
@@ -456,28 +466,29 @@ namespace MN_Barcode.WinForms
                 // Eskiden hata yalnızca Debug.WriteLine'a gidiyordu; Release
                 // yapısında hiçbir yere yazılmıyor, ekran sessizce boş kalıyordu.
                 AppLogger.Yaz("Ana sayfa yüklenemedi", ex);
-                if (!this.IsDisposed)
+                if (benimIstek == _istekNo && !this.IsDisposed)
                 {
                     _lblTodayCiro.Text = "—";
                     _lblMonthlyCiro.Text = "—";
                     _lblTodayCount.Text = "—";
                 }
             }
-            finally
-            {
-                _yukleniyor = false;
-            }
         }
 
         // Tarih aralığına bağlı grafik — tarih değişince yeniden yüklenir.
         private async void LoadChartAndStock()
         {
+            int benimIstek = ++_istekNo;
+
             try
             {
                 DateTime bas = _dtpStart.Value, bit = _dtpEnd.Value;
                 var veri = await Task.Run(() => _saleService.GetDailySales(bas, bit));
 
+                // Kısayol düğmeleri iki ValueChanged tetikler; yalnızca sonuncusu geçerli.
+                if (benimIstek != _istekNo) return;
                 if (this.IsDisposed) return;
+
                 _chartData = veri;
                 _chartPanel?.Invalidate();
             }

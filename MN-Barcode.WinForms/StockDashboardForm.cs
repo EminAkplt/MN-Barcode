@@ -227,12 +227,12 @@ namespace MN_Barcode.WinForms
             return grid;
         }
 
-        private bool _yukleniyor;
+        /// <summary>En son başlatılan yükleme isteğinin numarası (bkz. SalesHistoryForm).</summary>
+        private int _istekNo;
 
         private async void LoadData()
         {
-            if (_yukleniyor) return;
-            _yukleniyor = true;
+            int benimIstek = ++_istekNo;
             _lblTodaySales.Text = "Yükleniyor…";
 
             try
@@ -248,6 +248,8 @@ namespace MN_Barcode.WinForms
                     AzalanStok = _productService.GetLowStockProducts(10, 20)
                 });
 
+                // Daha yeni bir istek başladıysa bu sonuç ekrana yazılmaz.
+                if (benimIstek != _istekNo) return;
                 if (this.IsDisposed) return;
 
                 _lblTodaySales.Text = $"Bugün: {veri.Toplam:₺#,##0.00}  ({veri.Adet} satış)";
@@ -283,16 +285,12 @@ namespace MN_Barcode.WinForms
             catch (Exception ex)
             {
                 AppLogger.Yaz("Stok ekranı yüklenemedi", ex);
-                if (!this.IsDisposed)
+                if (benimIstek == _istekNo && !this.IsDisposed)
                 {
                     _lblTodaySales.Text = "Bugün: —";
                     MessageBox.Show("Stok bilgileri yüklenemedi.\nAyrıntı hata kaydına yazıldı.",
                         "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
-            }
-            finally
-            {
-                _yukleniyor = false;
             }
         }
     }

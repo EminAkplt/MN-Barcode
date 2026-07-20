@@ -245,12 +245,16 @@ namespace MN_Barcode.WinForms
             return grid;
         }
 
-        /// <summary>Aynı anda ikinci bir yükleme başlamasın diye.</summary>
-        private bool _yukleniyor;
+        /// <summary>
+        /// En son başlatılan yükleme isteğinin numarası (bkz. SalesHistoryForm'daki
+        /// aynı düzeltme): yükleme sürerken tarih değiştirilirse eski sonuç
+        /// ekrana yazılmamalı, kullanıcının son seçimi kaybolmamalı.
+        /// </summary>
+        private int _istekNo;
 
         private async void LoadData()
         {
-            if (_yukleniyor) return;
+            int benimIstek = ++_istekNo;
 
             DateTime start = _dtStart.Value.Date;
             // Son günün tamamı dahil (bkz. SalesHistoryForm'daki aynı düzeltme).
@@ -263,7 +267,6 @@ namespace MN_Barcode.WinForms
                 return;
             }
 
-            _yukleniyor = true;
             Cursor eskiImlec = this.Cursor;
             this.Cursor = Cursors.WaitCursor;
             _lblTotal.Text = "Yükleniyor…";
@@ -273,6 +276,8 @@ namespace MN_Barcode.WinForms
                 // Veritabanı erişimi arka planda — arayüz donmasın.
                 var sonuc = await Task.Run(() => _saleService.GetReturnsHistoryPage(start, end));
 
+                // Daha yeni bir istek başladıysa bu sonuç ekrana yazılmaz.
+                if (benimIstek != _istekNo) return;
                 if (this.IsDisposed || _grid.IsDisposed) return;
 
                 IzgarayiDoldur(sonuc);
@@ -280,14 +285,16 @@ namespace MN_Barcode.WinForms
             catch (Exception ex)
             {
                 AppLogger.Yaz("İade geçmişi yüklenemedi", ex);
-                _lblTotal.Text = "İade Toplamı: —";
-                MessageBox.Show("İade geçmişi yüklenemedi.\nAyrıntı hata kaydına yazıldı.",
-                    "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                if (benimIstek == _istekNo && !this.IsDisposed)
+                {
+                    _lblTotal.Text = "İade Toplamı: —";
+                    MessageBox.Show("İade geçmişi yüklenemedi.\nAyrıntı hata kaydına yazıldı.",
+                        "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
             }
             finally
             {
-                _yukleniyor = false;
-                if (!this.IsDisposed) this.Cursor = eskiImlec;
+                if (benimIstek == _istekNo && !this.IsDisposed) this.Cursor = eskiImlec;
             }
         }
 

@@ -250,12 +250,21 @@ namespace MN_Barcode.WinForms
             return grid;
         }
 
-        /// <summary>Aynı anda ikinci bir yükleme başlamasın diye.</summary>
-        private bool _yukleniyor;
+        /// <summary>
+        /// En son başlatılan yükleme isteğinin numarası.
+        ///
+        /// Eskiden "meşgulse yeni isteği yok say" mantığı vardı; bu, kullanıcının
+        /// SON seçimini atıyordu. Soğuk veritabanında 3 saniyelik yükleme sürerken
+        /// tarih değiştiren kasiyer, tarih kutularında yeni aralığı ama listede
+        /// ESKİ aralığı görüyordu ve hiçbir şey onu tazelemiyordu — rapor ekranında
+        /// yanlış rakam okunması demek. Artık istekler iptal edilmiyor; sadece en
+        /// son isteğin sonucu ekrana yazılıyor.
+        /// </summary>
+        private int _istekNo;
 
         private async void LoadData()
         {
-            if (_yukleniyor) return;
+            int benimIstek = ++_istekNo;
 
             DateTime start = _dtStart.Value.Date;
             // Son günün tamamı dahil olmalı. AddSeconds(-1) kullanıldığında
@@ -269,7 +278,6 @@ namespace MN_Barcode.WinForms
                 return;
             }
 
-            _yukleniyor = true;
             Cursor eskiImlec = this.Cursor;
             this.Cursor = Cursors.WaitCursor;
             _lblTotal.Text = "Yükleniyor…";
@@ -280,6 +288,9 @@ namespace MN_Barcode.WinForms
                 // saniyeler sürebiliyor ve arayüz "Yanıt vermiyor" duruma düşüyordu.
                 var sonuc = await Task.Run(() => _saleService.GetSalesHistoryPage(start, end));
 
+                // Bu istek beklerken kullanıcı tarihi değiştirdiyse daha yeni bir
+                // istek başlamıştır; eski sonuç ekrana YAZILMAZ.
+                if (benimIstek != _istekNo) return;
                 if (this.IsDisposed || _grid.IsDisposed) return;   // ekran kapanmış olabilir
 
                 DolduranIzgara(sonuc);
@@ -287,14 +298,18 @@ namespace MN_Barcode.WinForms
             catch (Exception ex)
             {
                 AppLogger.Yaz("Satış geçmişi yüklenemedi", ex);
-                _lblTotal.Text = "Toplam: —";
-                MessageBox.Show("Satış geçmişi yüklenemedi.\nAyrıntı hata kaydına yazıldı.",
-                    "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                if (benimIstek == _istekNo && !this.IsDisposed)
+                {
+                    _lblTotal.Text = "Toplam: —";
+                    MessageBox.Show("Satış geçmişi yüklenemedi.\nAyrıntı hata kaydına yazıldı.",
+                        "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
             }
             finally
             {
-                _yukleniyor = false;
-                if (!this.IsDisposed) this.Cursor = eskiImlec;
+                // İmleci yalnızca en son istek geri alır; aksi halde eski bir istek
+                // bitince hâlâ süren yenisinin bekleme imleci kaybolurdu.
+                if (benimIstek == _istekNo && !this.IsDisposed) this.Cursor = eskiImlec;
             }
         }
 

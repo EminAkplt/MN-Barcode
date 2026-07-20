@@ -53,6 +53,23 @@ namespace MN_Barcode.DataAccess
         private const string LocalDbInstance = "MSSQLLocalDB";
         private const string SqlLocalDbExe   = "sqllocaldb.exe";
 
+        /// <summary>
+        /// EnsureCreated() döneminde üretilen şemanın karşılığı olan SON migration.
+        ///
+        /// Eski sürümler veritabanını EnsureCreated() ile oluşturuyordu; bu yöntem
+        /// __EFMigrationsHistory tablosunu hiç yazmaz. Böyle bir veritabanını
+        /// migration düzenine almak için o güne kadarki migration'ları "uygulanmış"
+        /// işaretlemek (baseline) gerekir.
+        ///
+        /// BU SABİT ASLA GÜNCELLENMEMELİDİR. Yeni migration eklendiğinde buraya
+        /// dokunulursa o migration mevcut müşterilerde SESSİZCE ATLANIR: şema
+        /// güncellenmez ama uygulama "her şey hazır" der. Bu, bugün fark edilen
+        /// ve düzeltilen hatanın ta kendisiydi — baseline tüm migration'ları
+        /// işaretlediği için şifre sütunu genişlemiyor ve barkod tekil indeksi
+        /// oluşmuyordu.
+        /// </summary>
+        private const string EnsureCreatedDonemiSonMigration = "20260712094552_AddProductUnitAndEnumConversions";
+
         /// <summary>Adım adım ne olduğunun kaydı — hata raporuna eklenir.</summary>
         private static readonly StringBuilder _gunluk = new StringBuilder();
 
@@ -192,8 +209,19 @@ namespace MN_Barcode.DataAccess
 
                 string surum = typeof(DbContext).Assembly.GetName().Version?.ToString() ?? "8.0.11";
                 int n = 0;
+                bool sinirGecildi = false;
+
+                // YALNIZCA EnsureCreated döneminin migration'ları işaretlenir.
+                // Sonrakiler işaretlenmez ki Migrate() onları gerçekten uygulasın.
+                // Migration'lar tarih önekli olduğu için GetMigrations() sıralı döner.
                 foreach (string id in context.Database.GetMigrations())
                 {
+                    if (sinirGecildi)
+                    {
+                        Not($"Baseline disi (Migrate uygulayacak): {id}");
+                        continue;
+                    }
+
                     using var cmd = connection.CreateCommand();
                     cmd.CommandText =
                         "INSERT INTO [__EFMigrationsHistory] ([MigrationId],[ProductVersion]) VALUES (@id,@ver);";
@@ -201,7 +229,20 @@ namespace MN_Barcode.DataAccess
                     cmd.Parameters.AddWithValue("@ver", surum);
                     cmd.ExecuteNonQuery();
                     n++;
+
+                    if (string.Equals(id, EnsureCreatedDonemiSonMigration, StringComparison.OrdinalIgnoreCase))
+                        sinirGecildi = true;
                 }
+
+                if (!sinirGecildi)
+                {
+                    // Sinir migration'i bulunamadi: ya yeniden adlandirildi ya da silindi.
+                    // Bu durumda TUM migration'lar isaretlenmis olur ve sonrakiler
+                    // sessizce atlanir. Kayda geciyoruz ki fark edilsin.
+                    Not($"UYARI: sinir migration bulunamadi ({EnsureCreatedDonemiSonMigration}). " +
+                        "Tum migration'lar baseline'a alindi; yeni semalar uygulanmayabilir.");
+                }
+
                 Not($"Baseline tamam ({n} migration isaretlendi).");
             }
             finally

@@ -569,11 +569,18 @@ namespace MN_Barcode.WinForms
             LoadCategories();
         }
 
-        private bool _urunlerYukleniyor;
+        /// <summary>
+        /// En son başlatılan yükleme isteğinin numarası.
+        ///
+        /// "Meşgulse yok say" mantığı kullanıcının son seçimini atıyordu: ilk
+        /// yükleme sürerken kategori değiştiren kişi, açılır listede "İçecekler"
+        /// yazarken ızgarada tüm ürünleri görüyordu ve hiçbir şey bunu düzeltmiyordu.
+        /// </summary>
+        private int _urunIstekNo;
 
         private async void LoadProducts()
         {
-            if (_urunlerYukleniyor) return;
+            int benimIstek = ++_urunIstekNo;
 
             // Kategori süzgeci veritabanında uygulanır. Eskiden tüm ürünler çekilip
             // bellekte süzülüyordu — 20 ürünlük bir kategori için tüm katalog taşınıyordu.
@@ -582,24 +589,26 @@ namespace MN_Barcode.WinForms
                 : "";
             string arama = _txtSearch.Text.Trim();
 
-            _urunlerYukleniyor = true;
             List<Product> list;
             try
             {
                 // Sorgu arka planda: büyük katalogda LIKE taraması arayüzü donduruyordu.
                 list = await Task.Run(() => _productService.GetProducts(arama, kategori));
+
+                // Bu sorgu beklerken kullanıcı arama/kategori değiştirdiyse
+                // daha yeni bir istek vardır; eski sonuç ızgaraya yazılmaz.
+                if (benimIstek != _urunIstekNo) return;
                 if (this.IsDisposed || _gridProducts.IsDisposed) return;
             }
             catch (Exception ex)
             {
                 AppLogger.Yaz("Ürün listesi yüklenemedi", ex);
-                MessageBox.Show("Ürün listesi yüklenemedi. Ayrıntı hata kaydına yazıldı.",
-                    "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                if (benimIstek == _urunIstekNo && !this.IsDisposed)
+                {
+                    MessageBox.Show("Ürün listesi yüklenemedi. Ayrıntı hata kaydına yazıldı.",
+                        "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
                 return;
-            }
-            finally
-            {
-                _urunlerYukleniyor = false;
             }
 
             // Satırlar eklenirken her eklemede yeniden yerleşim/çizim yapılmasın.
