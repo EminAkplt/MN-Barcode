@@ -63,6 +63,49 @@ namespace MN_Barcode.DataAccess
             // Mevcut Sale kayıtlarında PaymentType kolonu string değer içerebilir
             // ("Nakit", "Kredi Kartı" gibi). HasConversion bunları otomatik map eder.
             // ──────────────────────────────────────────────────────────────────
+
+            // ──────────────────────────────────────────────────────────────────
+            // PARA SÜTUNLARI — hassasiyet açıkça belirtilir
+            //
+            // Belirtilmezse EF uyarı veriyor ("values will be silently truncated").
+            // Varsayılan decimal(18,2) ile aynı sonucu üretir; buradaki amaç
+            // ileride biri modeli değiştirdiğinde para alanlarının sessizce
+            // kırpılmaya başlamasını engellemek. Kasada kuruş kaybı kabul edilemez.
+            // ──────────────────────────────────────────────────────────────────
+            modelBuilder.Entity<Product>().Property(p => p.BuyingPrice).HasPrecision(18, 2);
+            modelBuilder.Entity<Product>().Property(p => p.SellingPrice).HasPrecision(18, 2);
+            modelBuilder.Entity<Sale>().Property(s => s.TotalAmount).HasPrecision(18, 2);
+            modelBuilder.Entity<SaleDetail>().Property(d => d.SellingPrice).HasPrecision(18, 2);
+            modelBuilder.Entity<SaleDetail>().Property(d => d.TotalPrice).HasPrecision(18, 2);
+            modelBuilder.Entity<Expense>().Property(e => e.Amount).HasPrecision(18, 2);
+
+            // ──────────────────────────────────────────────────────────────────
+            // İNDEKSLER — kasadaki hızın ve veri doğruluğunun temeli
+            // ──────────────────────────────────────────────────────────────────
+
+            // Barkod: her okutmada sorgulanır. İndekssiz her okutma tam tablo
+            // taramasıydı; 10-20 bin ürünlü bir katalogda mekanik diskte belirgin
+            // gecikme demek. Ayrıca TEKİL: aynı barkod iki üründe olabiliyordu ve
+            // FirstOrDefault rastgele birini döndürdüğü için YANLIŞ ÜRÜN satılıyordu.
+            // Filtre: barkodsuz ürünler (NULL) tekillik kuralının dışında tutulur,
+            // aksi halde ikinci barkodsuz ürün kaydedilemezdi.
+            modelBuilder.Entity<Product>()
+                .HasIndex(p => p.Barcode)
+                .IsUnique()
+                .HasFilter("[Barcode] IS NOT NULL");
+
+            // Satış tarihi: Ana Sayfa, Satış Geçmişi, İadeler ve tüm raporlar bu
+            // sütuna göre süzüyor. İndekssiz her ekran açılışı tam tablo taramasıydı.
+            modelBuilder.Entity<Sale>()
+                .HasIndex(s => s.CreatedDate);
+
+            // Fiş numarası: geçmiş ve iade ekranları buna göre gruplar.
+            modelBuilder.Entity<Sale>()
+                .HasIndex(s => s.TransactionCode);
+
+            // Gider tarihi: gider listesi ve günlük özet bu sütuna göre süzer.
+            modelBuilder.Entity<Expense>()
+                .HasIndex(e => e.ExpenseDate);
         }
 
         private static string? BaglantiCumlesiniOku()
