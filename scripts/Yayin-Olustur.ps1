@@ -23,17 +23,31 @@
 .EXAMPLE
     .\Yayin-Olustur.ps1 -Surum 1.1.0
     Surum numarasini vererek uretir.
+
+.EXAMPLE
+    .\Yayin-Olustur.ps1 -Ad MN-barcode01
+    Exe adini ve cikti klasorunu MN-barcode01 yapar.
+    Ayni koddan farkli isimli paketler uretmek icin kullanilir;
+    projede kalici bir degisiklik yapmaz.
 #>
 [CmdletBinding()]
 param(
     [string]$Surum,
+    [string]$Ad = 'MN-Barcode',
     [string]$CiktiKlasoru
 )
 
 $ErrorActionPreference = 'Stop'
 
+# Dosya adinda kullanilamayacak karakterleri ele
+$gecersiz = [System.IO.Path]::GetInvalidFileNameChars()
+if ($Ad.IndexOfAny($gecersiz) -ge 0) {
+    Write-Host "HATA: '$Ad' dosya adi olarak kullanilamaz." -ForegroundColor Red
+    exit 1
+}
+
 $kok = Split-Path -Parent $PSScriptRoot
-if (-not $CiktiKlasoru) { $CiktiKlasoru = Join-Path $kok 'yayin\MN-Barcode' }
+if (-not $CiktiKlasoru) { $CiktiKlasoru = Join-Path $kok "yayin\$Ad" }
 $proje = Join-Path $kok 'MN-Barcode.WinForms\MN-Barcode.WinForms.csproj'
 
 Write-Host "`n=== MN-Barcode Yayin Paketi ===" -ForegroundColor Cyan
@@ -50,11 +64,13 @@ $argumanlar = @(
     '-c', 'Release'
     '-o', $CiktiKlasoru
     '--nologo'
+    "-p:PaketAdi=$Ad"
 )
 if ($Surum) {
     $argumanlar += "-p:Version=$Surum"
     Write-Host "Surum: $Surum" -ForegroundColor Cyan
 }
+Write-Host "Ad   : $Ad" -ForegroundColor Cyan
 
 Write-Host "Derleniyor (ReadyToRun on derleme nedeniyle birkac dakika surebilir)...`n" -ForegroundColor Yellow
 & dotnet @argumanlar
@@ -65,6 +81,7 @@ if ($LASTEXITCODE -ne 0) {
 
 # ── Kurulum yardimcilarini pakete ekle ───────────────────────────
 Copy-Item (Join-Path $PSScriptRoot 'Yazici-Optimize.ps1') $CiktiKlasoru -Force
+Copy-Item (Join-Path $PSScriptRoot 'Teshis.ps1')          $CiktiKlasoru -Force
 
 $kurulumMetni = @'
 MN-BARCODE KURULUM ADIMLARI
@@ -78,7 +95,7 @@ MN-BARCODE KURULUM ADIMLARI
    Indirme: Microsoft resmi sitesi > SQL Server Express > LocalDB
 
 2) PROGRAMI CALISTIRIN
-   MN-Barcode.exe dosyasina cift tiklayin.
+   Klasordeki .exe dosyasina cift tiklayin.
    Ilk aciliista veritabani otomatik olusturulur.
 
    Varsayilan giris : admin / admin123
@@ -101,8 +118,20 @@ MN-BARCODE KURULUM ADIMLARI
 SORUN GIDERME
 -------------
 Program acilmiyor / hata veriyor:
+   Teshis.ps1 dosyasina sag tiklayin > "PowerShell ile calistir".
+   Yonetici yetkisi gerekmez. Cikan raporun TAMAMINI teknik destege
+   gonderin; sorunun nerede oldugunu dogrudan gosterir.
+
    Hata kaydi: %LOCALAPPDATA%\MN-Barcode\hata.log
-   Bu dosyayi teknik destege gonderin.
+
+"Windows bilgisayarinizi korudu" uyarisi cikiyorsa:
+   Bu bir hata degil, imzasiz programlar icin cikan guvenlik uyarisidir.
+   "Daha fazla bilgi" > "Yine de calistir" secin.
+   Kalici cozum: exe'ye sag tik > Ozellikler > altta
+   "Engellemeyi kaldir" kutusunu isaretleyin > Tamam.
+
+"Veritabani bileseni kurulu degil" diyorsa:
+   Adim 1'deki LocalDB kurulumu yapilmamis demektir.
 
 Etiket bos cikiyor:
    Termal etiket kagidi kullandiginizdan emin olun.
@@ -122,7 +151,7 @@ $dosyalar | Sort-Object Length -Descending |
     ForEach-Object { "    {0,-24} {1,8:N1} MB" -f $_.Name, ($_.Length / 1MB) } |
     Write-Host
 
-$exe = Join-Path $CiktiKlasoru 'MN-Barcode.exe'
+$exe = Join-Path $CiktiKlasoru "$Ad.exe"
 if (Test-Path $exe) {
     $v = (Get-Item $exe).VersionInfo
     Write-Host "`n  Surum  : $($v.FileVersion)"

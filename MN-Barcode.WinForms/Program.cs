@@ -39,10 +39,20 @@ namespace MN_Barcode.WinForms
             {
                 AppLogger.Yaz($"Veritabanı başlatma hatası [{sonuc.Status}]\r\n{sonuc.TechnicalDetail}");
 
-                MessageBox.Show(
-                    sonuc.UserMessage + $"\n\nTeknik kayıt: {AppLogger.LogDosyasi}",
-                    "MN-Barcode başlatılamadı",
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+                // Teknik rapor doğrudan ekranda gösterilir. "Şu gizli klasördeki
+                // log dosyasına bak" demek sahada işe yaramıyordu.
+                string rapor =
+                    sonuc.TechnicalDetail +
+                    $"\r\n── ORTAM ──\r\n" +
+                    $"Surum      : {Application.ProductVersion}\r\n" +
+                    $"Windows    : {Environment.OSVersion}\r\n" +
+                    $"64-bit OS  : {Environment.Is64BitOperatingSystem}\r\n" +
+                    $"Kullanici  : {Environment.UserDomainName}\\{Environment.UserName}\r\n" +
+                    $"Bilgisayar : {Environment.MachineName}\r\n" +
+                    $"Uygulama   : {AppContext.BaseDirectory}\r\n" +
+                    $"Hata kaydi : {AppLogger.LogDosyasi}\r\n";
+
+                StartupErrorForm.Goster("MN-Barcode başlatılamadı", sonuc.UserMessage, rapor);
                 return false;
             }
 
