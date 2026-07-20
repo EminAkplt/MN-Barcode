@@ -375,3 +375,11 @@ FodyWeavers.xsd
 # Musteriye gonderilen yayin paketi (61 MB tek dosya exe) - depoya girmesin.
 # Uretmek icin: scripts\Yayin-Olustur.ps1
 /yayin/
+
+# Yayin betiginin proje kokune dusurdugu artik kopyalar (asillari scripts/ ve
+# MN-Barcode.WinForms/ altinda ve zaten commitli). Kokte durmasinlar.
+/MN-Barcode.exe
+/appsettings.json
+/KURULUM.txt
+/Yazici-Optimize.ps1
+/Teshis.ps1
