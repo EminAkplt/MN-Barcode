@@ -10,10 +10,14 @@
     <Authors>Mehmet Emin AKPOLAT</Authors>
     <Copyright>Copyright © 2026 MN Yazilim</Copyright>
 
-    <!-- Surum: musteriye gonderilen her yeni yapida artirilmali. -->
+    <!--
+      Surum: musteriye gonderilen her yeni yapida artirilmali.
+      Yayin-Olustur.ps1 -Surum 1.1.0 ile buradaki deger ezilebilir.
+      AssemblyVersion/FileVersion BILEREK yazilmadi: MSBuild ikisini de
+      Version'dan turetir. Sabit yazilirlarsa -p:Version parametresi
+      exe ozelliklerine yansimaz ve hangi yapinin musteride oldugu anlasilmaz.
+    -->
     <Version>1.0.0</Version>
-    <AssemblyVersion>1.0.0.0</AssemblyVersion>
-    <FileVersion>1.0.0.0</FileVersion>
 
     <!-- Tum projeler ayni .NET surumunu hedeflesin (WinForms kendi TFM'ini ezer). -->
     <TargetFramework>net9.0</TargetFramework>
